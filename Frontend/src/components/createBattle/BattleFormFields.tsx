@@ -1,6 +1,29 @@
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Trash2, Calendar, Users, Tag } from 'lucide-react';
+
+interface Problem {
+  title: string;
+  description: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  testCases: Array<{
+    input: string;
+    expectedOutput: string;
+    isHidden: boolean;
+  }>;
+  constraints: string;
+  examples: Array<{
+    input: string;
+    output: string;
+    explanation: string;
+  }>;
+  points: number;
+}
 
 interface BattleFormFieldsProps {
   title: string;
@@ -11,8 +34,22 @@ interface BattleFormFieldsProps {
   setDifficulty: (value: string) => void;
   duration: string;
   setDuration: (value: string) => void;
-  problemStatement: string;
-  setProblemStatement: (value: string) => void;
+  maxParticipants: string;
+  setMaxParticipants: (value: string) => void;
+  startTime: string;
+  setStartTime: (value: string) => void;
+  isPublic: boolean;
+  setIsPublic: (value: boolean) => void;
+  tags: string;
+  setTags: (value: string) => void;
+  problems: Problem[];
+  updateProblem: (index: number, field: keyof Problem, value: any) => void;
+  addProblem: () => void;
+  removeProblem: (index: number) => void;
+  addTestCase: (problemIndex: number) => void;
+  removeTestCase: (problemIndex: number, testCaseIndex: number) => void;
+  addExample: (problemIndex: number) => void;
+  removeExample: (problemIndex: number, exampleIndex: number) => void;
 }
 
 const BattleFormFields = ({
@@ -24,57 +61,378 @@ const BattleFormFields = ({
   setDifficulty,
   duration,
   setDuration,
-  problemStatement,
-  setProblemStatement,
+  maxParticipants,
+  setMaxParticipants,
+  startTime,
+  setStartTime,
+  isPublic,
+  setIsPublic,
+  tags,
+  setTags,
+  problems,
+  updateProblem,
+  addProblem,
+  removeProblem,
+  addTestCase,
+  removeTestCase,
+  addExample,
+  removeExample,
 }: BattleFormFieldsProps) => {
   return (
-    <div className="space-y-6">
-      <div>
-        <Input
-          type="text"
-          placeholder="Battle Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
-        />
-      </div>
-      <div>
-        <Textarea
-          placeholder="Brief Battle Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 resize-none"
-        />
-      </div>
-      <div>
-        <Select value={difficulty} onValueChange={setDifficulty}>
-          <SelectTrigger className="bg-slate-800/50 border-slate-600">
-            <SelectValue placeholder="Difficulty" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Easy">Easy</SelectItem>
-            <SelectItem value="Medium">Medium</SelectItem>
-            <SelectItem value="Hard">Hard</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Input
-          type="number"
-          placeholder="Duration in Minutes"
-          value={duration}
-          onChange={(e) => setDuration(e.target.value)}
-          className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
-        />
-      </div>
-      <div>
-        <Textarea
-          placeholder="Problem Statement"
-          value={problemStatement}
-          onChange={(e) => setProblemStatement(e.target.value)}
-          className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 resize-none"
-        />
-      </div>
+    <div className="space-y-8">
+      {/* Basic Battle Information */}
+      <Card className="bg-slate-800/30 border-slate-600">
+        <CardHeader>
+          <CardTitle className="text-purple-400 text-lg">Battle Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="title" className="text-slate-300">Battle Title *</Label>
+            <Input
+              id="title"
+              type="text"
+              placeholder="Enter battle title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="description" className="text-slate-300">Description *</Label>
+            <Textarea
+              id="description"
+              placeholder="Brief description of your battle"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 resize-none mt-1"
+              rows={3}
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="difficulty" className="text-slate-300">Difficulty *</Label>
+              <Select value={difficulty} onValueChange={setDifficulty}>
+                <SelectTrigger className="bg-slate-800/50 border-slate-600 mt-1">
+                  <SelectValue placeholder="Select difficulty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Easy">🟢 Easy</SelectItem>
+                  <SelectItem value="Medium">🟡 Medium</SelectItem>
+                  <SelectItem value="Hard">🔴 Hard</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="duration" className="text-slate-300">Duration (minutes) *</Label>
+              <Input
+                id="duration"
+                type="number"
+                placeholder="60"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 mt-1"
+                min="15"
+                max="480"
+              />
+            </div>
+            <div>
+              <Label htmlFor="maxParticipants" className="text-slate-300">Max Participants</Label>
+              <Input
+                id="maxParticipants"
+                type="number"
+                placeholder="100"
+                value={maxParticipants}
+                onChange={(e) => setMaxParticipants(e.target.value)}
+                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 mt-1"
+                min="2"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="startTime" className="text-slate-300 flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Start Time (optional)
+              </Label>
+              <Input
+                id="startTime"
+                type="datetime-local"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="bg-slate-800/50 border-slate-600 text-white mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="tags" className="text-slate-300 flex items-center gap-2">
+                <Tag className="w-4 h-4" />
+                Tags (comma-separated)
+              </Label>
+              <Input
+                id="tags"
+                type="text"
+                placeholder="algorithms, data-structures, dynamic-programming"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 mt-1"
+              />
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="isPublic"
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
+              className="border-slate-600"
+            />
+            <Label htmlFor="isPublic" className="text-slate-300">Make this battle public</Label>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Problems Section */}
+      <Card className="bg-slate-800/30 border-slate-600">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-purple-400 text-lg">Problems ({problems.length})</CardTitle>
+          <Button
+            type="button"
+            onClick={addProblem}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+            size="sm"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Problem
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {problems.map((problem, problemIndex) => (
+            <Card key={problemIndex} className="bg-slate-700/30 border-slate-500">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <CardTitle className="text-cyan-400 text-base">
+                  Problem {problemIndex + 1}
+                </CardTitle>
+                {problems.length > 1 && (
+                  <Button
+                    type="button"
+                    onClick={() => removeProblem(problemIndex)}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-slate-300">Problem Title *</Label>
+                    <Input
+                      type="text"
+                      placeholder="e.g., Two Sum"
+                      value={problem.title}
+                      onChange={(e) => updateProblem(problemIndex, 'title', e.target.value)}
+                      className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Difficulty *</Label>
+                    <Select
+                      value={problem.difficulty}
+                      onValueChange={(value) => updateProblem(problemIndex, 'difficulty', value)}
+                    >
+                      <SelectTrigger className="bg-slate-800/50 border-slate-600 mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Easy">🟢 Easy</SelectItem>
+                        <SelectItem value="Medium">🟡 Medium</SelectItem>
+                        <SelectItem value="Hard">🔴 Hard</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-slate-300">Problem Description *</Label>
+                  <Textarea
+                    placeholder="Describe the problem statement..."
+                    value={problem.description}
+                    onChange={(e) => updateProblem(problemIndex, 'description', e.target.value)}
+                    className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 resize-none mt-1"
+                    rows={4}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-slate-300">Constraints</Label>
+                    <Textarea
+                      placeholder="e.g., 1 <= nums.length <= 10^4"
+                      value={problem.constraints}
+                      onChange={(e) => updateProblem(problemIndex, 'constraints', e.target.value)}
+                      className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 resize-none mt-1"
+                      rows={2}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Points</Label>
+                    <Input
+                      type="number"
+                      placeholder="100"
+                      value={problem.points}
+                      onChange={(e) => updateProblem(problemIndex, 'points', parseInt(e.target.value) || 100)}
+                      className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 mt-1"
+                      min="1"
+                    />
+                  </div>
+                </div>
+
+                {/* Examples */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-slate-300">Examples</Label>
+                    <Button
+                      type="button"
+                      onClick={() => addExample(problemIndex)}
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add Example
+                    </Button>
+                  </div>
+                  {problem.examples.map((example, exampleIndex) => (
+                    <Card key={exampleIndex} className="bg-slate-600/30 border-slate-500 mb-2">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-slate-400">Example {exampleIndex + 1}</span>
+                          {problem.examples.length > 1 && (
+                            <Button
+                              type="button"
+                              onClick={() => removeExample(problemIndex, exampleIndex)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-400 hover:text-red-300"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <Input
+                            placeholder="Input"
+                            value={example.input}
+                            onChange={(e) => {
+                              const updatedExamples = [...problem.examples];
+                              updatedExamples[exampleIndex].input = e.target.value;
+                              updateProblem(problemIndex, 'examples', updatedExamples);
+                            }}
+                            className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 text-sm"
+                          />
+                          <Input
+                            placeholder="Output"
+                            value={example.output}
+                            onChange={(e) => {
+                              const updatedExamples = [...problem.examples];
+                              updatedExamples[exampleIndex].output = e.target.value;
+                              updateProblem(problemIndex, 'examples', updatedExamples);
+                            }}
+                            className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 text-sm"
+                          />
+                          <Input
+                            placeholder="Explanation (optional)"
+                            value={example.explanation}
+                            onChange={(e) => {
+                              const updatedExamples = [...problem.examples];
+                              updatedExamples[exampleIndex].explanation = e.target.value;
+                              updateProblem(problemIndex, 'examples', updatedExamples);
+                            }}
+                            className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 text-sm"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Test Cases */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-slate-300">Test Cases</Label>
+                    <Button
+                      type="button"
+                      onClick={() => addTestCase(problemIndex)}
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add Test Case
+                    </Button>
+                  </div>
+                  {problem.testCases.map((testCase, testCaseIndex) => (
+                    <Card key={testCaseIndex} className="bg-slate-600/30 border-slate-500 mb-2">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-slate-400">Test Case {testCaseIndex + 1}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`hidden-${problemIndex}-${testCaseIndex}`}
+                                checked={testCase.isHidden}
+                                onCheckedChange={(checked) => {
+                                  const updatedTestCases = [...problem.testCases];
+                                  updatedTestCases[testCaseIndex].isHidden = checked as boolean;
+                                  updateProblem(problemIndex, 'testCases', updatedTestCases);
+                                }}
+                                className="border-slate-600"
+                              />
+                              <Label htmlFor={`hidden-${problemIndex}-${testCaseIndex}`} className="text-xs text-slate-400">
+                                Hidden
+                              </Label>
+                            </div>
+                            {problem.testCases.length > 1 && (
+                              <Button
+                                type="button"
+                                onClick={() => removeTestCase(problemIndex, testCaseIndex)}
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-400 hover:text-red-300"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <Input
+                            placeholder="Input"
+                            value={testCase.input}
+                            onChange={(e) => {
+                              const updatedTestCases = [...problem.testCases];
+                              updatedTestCases[testCaseIndex].input = e.target.value;
+                              updateProblem(problemIndex, 'testCases', updatedTestCases);
+                            }}
+                            className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 text-sm"
+                          />
+                          <Input
+                            placeholder="Expected Output"
+                            value={testCase.expectedOutput}
+                            onChange={(e) => {
+                              const updatedTestCases = [...problem.testCases];
+                              updatedTestCases[testCaseIndex].expectedOutput = e.target.value;
+                              updateProblem(problemIndex, 'testCases', updatedTestCases);
+                            }}
+                            className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 text-sm"
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 };
