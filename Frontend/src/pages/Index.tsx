@@ -1,10 +1,10 @@
 
-import Header from "@/components/Header";
-import HeroSection from "@/components/HeroSection";
-import BattleStats from "@/components/BattleStats";
-import BattleModes from "@/components/BattleModes";
-import FeaturedBattles from "@/components/FeaturedBattles";
-import FloatingActionButton from "@/components/FloatingActionButton";
+import Header from "../components/index/Header";
+import HeroSection from "../components/index/HeroSection";
+import BattleStats from "../components/index/BattleStats";
+import BattleModes from "../components/index/BattleModes";
+import FeaturedBattles from "../components/index/FeaturedBattles";
+import FloatingActionButton from "../components/index/FloatingActionButton";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {

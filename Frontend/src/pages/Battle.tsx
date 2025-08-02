@@ -6,9 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { CodeEditor } from '@/components/CodeEditor';
-import { ProblemCard } from '@/components/ProblemCard';
+import { CodeEditor } from '@/components/index/CodeEditor';
+import { ProblemCard } from '@/components/index/ProblemCard';
 import { Play, Code, Trophy, ArrowLeft } from 'lucide-react';
+import BattleHeader from '@/components/battle/BattleHeader';
+import BattleProblemsList from '@/components/battle/BattleProblemsList';
+import BattleProblemDetails from '@/components/battle/BattleProblemDetails';
+import BattleCodeEditor from '@/components/battle/BattleCodeEditor';
+import BattleCustomInput from '@/components/battle/BattleCustomInput';
+import BattleSubmitButton from '@/components/battle/BattleSubmitButton';
+import BattleSubmissionResult from '@/components/battle/BattleSubmissionResult';
 
 interface Problem {
   id: string;
@@ -106,187 +113,39 @@ const Battle = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <Button asChild variant="outline" className="border-cyan-400 text-cyan-400 hover:bg-cyan-400/20">
-            <Link to="/">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Home
-            </Link>
-          </Button>
-        </div>
-        
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Trophy className="h-8 w-8 text-primary animate-pulse" />
-            <h1 className="text-4xl font-bold neon-text">Battle Arena</h1>
-            <Code className="h-8 w-8 text-accent animate-pulse" />
-          </div>
-          <p className="text-muted-foreground text-lg">Choose your weapon and conquer the challenges!</p>
-        </div>
-      </div>
+      <BattleHeader />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
         {/* Problems List */}
-        <div className="lg:col-span-1">
-          <Card className="battle-card border-primary/30">
-            <CardHeader>
-              <CardTitle className="text-primary flex items-center gap-2">
-                <Trophy className="h-5 w-5" />
-                Battle Challenges
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {mockProblems.map((problem) => (
-                <ProblemCard
-                  key={problem.id}
-                  problem={problem}
-                  isSelected={selectedProblem.id === problem.id}
-                  onClick={() => setSelectedProblem(problem)}
+        <BattleProblemsList
+          problems={mockProblems}
+          selectedProblemId={selectedProblem.id}
+          onSelect={setSelectedProblem}
                 />
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Main Coding Area */}
         <div className="lg:col-span-2 space-y-6">
           {/* Problem Details */}
-          <Card className="battle-card border-accent/30">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-accent">{selectedProblem.title}</CardTitle>
-                <Badge 
-                  variant={selectedProblem.difficulty === 'Easy' ? 'default' : 
-                          selectedProblem.difficulty === 'Medium' ? 'secondary' : 'destructive'}
-                  className="animate-glow"
-                >
-                  {selectedProblem.difficulty}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h4 className="font-semibold text-primary mb-2">Description</h4>
-                <p className="text-muted-foreground">{selectedProblem.description}</p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-semibold text-primary mb-2">Sample Input</h4>
-                  <code className="block bg-muted/20 p-3 rounded border text-sm">
-                    {selectedProblem.inputSample}
-                  </code>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-primary mb-2">Sample Output</h4>
-                  <code className="block bg-muted/20 p-3 rounded border text-sm">
-                    {selectedProblem.outputSample}
-                  </code>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-primary mb-2">Constraints</h4>
-                <ul className="text-muted-foreground text-sm space-y-1">
-                  {selectedProblem.constraints.map((constraint, index) => (
-                    <li key={index}>• {constraint}</li>
-                  ))}
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-
+          <BattleProblemDetails problem={selectedProblem} />
           {/* Code Editor */}
-          <Card className="battle-card border-primary/30">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-primary">Code Editor</CardTitle>
-                <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger className="w-40 bg-muted/20 border-primary/30">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="python">Python</SelectItem>
-                    <SelectItem value="cpp">C++</SelectItem>
-                    <SelectItem value="javascript">JavaScript</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CodeEditor
-                value={code}
-                onChange={setCode}
+          <BattleCodeEditor
+            code={code}
+            setCode={setCode}
                 language={language}
+            setLanguage={setLanguage}
               />
-            </CardContent>
-          </Card>
-
           {/* Custom Input */}
-          <Card className="battle-card border-accent/30">
-            <CardHeader>
-              <CardTitle className="text-accent">Custom Input (Optional)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                placeholder="Enter custom test input..."
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                className="bg-muted/20 border-accent/30 min-h-[100px]"
-              />
-            </CardContent>
-          </Card>
-
+          <BattleCustomInput
+            customInput={customInput}
+            setCustomInput={setCustomInput}
+          />
           {/* Submit Button */}
-          <div className="flex justify-center">
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting || !code.trim()}
-              size="lg"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground animate-glow px-8 py-3 text-lg font-semibold"
-            >
-              <Play className="h-5 w-5 mr-2" />
-              {isSubmitting ? 'Submitting...' : 'Submit Solution'}
-            </Button>
-          </div>
-
+          <BattleSubmitButton
+            onSubmit={handleSubmit}
+            isSubmitting={isSubmitting}
+            code={code}
+          />
           {/* Submission Result */}
-          {submissionResult && (
-            <Card className="battle-card border-accent/30 animate-fade-in">
-              <CardHeader>
-                <CardTitle className="text-accent">Verdict</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Badge 
-                    variant={submissionResult.verdict === 'Accepted' ? 'default' : 'destructive'}
-                    className="text-lg px-4 py-2"
-                  >
-                    {submissionResult.verdict}
-                  </Badge>
-                  {submissionResult.executionTime && (
-                    <span className="text-muted-foreground">
-                      Time: {submissionResult.executionTime}
-                    </span>
-                  )}
-                  {submissionResult.memoryUsed && (
-                    <span className="text-muted-foreground">
-                      Memory: {submissionResult.memoryUsed}
-                    </span>
-                  )}
-                </div>
-                
-                <div>
-                  <h4 className="font-semibold text-primary mb-2">Output</h4>
-                  <pre className="bg-muted/20 p-4 rounded border text-sm overflow-x-auto whitespace-pre-wrap">
-                    {submissionResult.output}
-                  </pre>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <BattleSubmissionResult submissionResult={submissionResult} />
         </div>
       </div>
     </div>

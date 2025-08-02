@@ -4,11 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { CodeEditor } from '@/components/CodeEditor';
+import { CodeEditor } from '@/components/index/CodeEditor';
 import { 
   ArrowLeft, Clock, Trophy, User, CheckCircle, XCircle, 
   AlertCircle, Users, Eye 
 } from 'lucide-react';
+import SpectateBattleHeader from '@/components/spectate/SpectateBattleHeader';
+import SpectateProblemPanel from '@/components/spectate/SpectateProblemPanel';
+import SpectateSubmissionsPanel from '@/components/spectate/SpectateSubmissionsPanel';
 
 interface Problem {
   id: string;
@@ -159,165 +162,19 @@ export const SpectateBattle = () => {
 
       <main className="relative z-10 container mx-auto px-6 py-8">
         {/* Header */}
-        <div className="mb-6">
-          <Button asChild variant="outline" className="mb-4 border-cyan-400 text-cyan-400 hover:bg-cyan-400/20">
-            <Link to="/">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Home
-            </Link>
-          </Button>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Eye className="h-8 w-8 text-cyan-400" />
-              <div>
-                <h1 className="text-2xl font-bold text-white">Spectate Battle</h1>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Users className="h-4 w-4" />
-                    {battleData.participants.length} participants
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    Started {battleData.startTime}
-                  </span>
-                  <Badge variant={battleData.status === 'completed' ? 'default' : 'secondary'}>
-                    {battleData.status}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        <SpectateBattleHeader battleData={battleData} />
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-200px)]">
           {/* Problem Panel */}
-          <Card className="border-primary/30 bg-card/50 backdrop-blur-sm">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg text-white">{battleData.problem.title}</CardTitle>
-                <Badge 
-                  variant={battleData.problem.difficulty === 'Easy' ? 'default' : 
-                          battleData.problem.difficulty === 'Medium' ? 'secondary' : 'destructive'}
-                >
-                  {battleData.problem.difficulty}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4 overflow-y-auto max-h-[calc(100vh-300px)]">
-              <div>
-                <h4 className="font-semibold text-white mb-2">Description</h4>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  {battleData.problem.description}
-                </p>
-              </div>
-
-              <Separator className="bg-border/50" />
-
-              <div>
-                <h4 className="font-semibold text-white mb-2">Example</h4>
-                <div className="bg-muted/20 p-3 rounded-md">
-                  <p className="text-sm">
-                    <span className="text-cyan-400">Input:</span> {battleData.problem.inputSample}
-                  </p>
-                  <p className="text-sm mt-1">
-                    <span className="text-cyan-400">Output:</span> {battleData.problem.outputSample}
-                  </p>
-                </div>
-              </div>
-
-              <Separator className="bg-border/50" />
-
-              <div>
-                <h4 className="font-semibold text-white mb-2">Constraints</h4>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  {battleData.problem.constraints.map((constraint, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="text-cyan-400 mt-1">•</span>
-                      {constraint}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-
+          <SpectateProblemPanel problem={battleData.problem} />
           {/* Code Viewer Panel */}
-          <Card className="border-primary/30 bg-card/50 backdrop-blur-sm">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg text-white">Submissions</CardTitle>
-                <div className="flex gap-2">
-                  {battleData.participants.map((participant, index) => (
-                    <Button
-                      key={participant.id}
-                      variant={selectedParticipant === index ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedParticipant(index)}
-                      className="flex items-center gap-2"
-                    >
-                      <span>{participant.avatar}</span>
-                      <span>{participant.username}</span>
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {battleData.participants[selectedParticipant] && (
-                <>
-                  {/* Participant Info */}
-                  <div className="flex items-center justify-between p-3 bg-muted/20 rounded-md">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{battleData.participants[selectedParticipant].avatar}</span>
-                      <div>
-                        <div className="font-semibold text-white">{battleData.participants[selectedParticipant].username}</div>
-                        <div className="text-sm text-muted-foreground">
-                          Submitted {battleData.participants[selectedParticipant].submissionTime}
-                        </div>
-                      </div>
-                    </div>
-                    <div className={`flex items-center gap-2 font-semibold ${getVerdictColor(battleData.participants[selectedParticipant].verdict)}`}>
-                      {getVerdictIcon(battleData.participants[selectedParticipant].verdict)}
-                      {battleData.participants[selectedParticipant].verdict}
-                    </div>
-                  </div>
-
-                  {/* Code Editor */}
-                  <div className="h-96">
-                    <CodeEditor
-                      value={battleData.participants[selectedParticipant].code}
-                      onChange={() => {}} // Read-only
-                      language={battleData.participants[selectedParticipant].language}
-                    />
-                  </div>
-
-                  {/* Results */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-muted/20 p-3 rounded-md text-center">
-                      <div className="text-sm text-muted-foreground">Execution Time</div>
-                      <div className="font-semibold text-white">{battleData.participants[selectedParticipant].executionTime}</div>
-                    </div>
-                    <div className="bg-muted/20 p-3 rounded-md text-center">
-                      <div className="text-sm text-muted-foreground">Memory</div>
-                      <div className="font-semibold text-white">{battleData.participants[selectedParticipant].memoryUsed}</div>
-                    </div>
-                    <div className="bg-muted/20 p-3 rounded-md text-center">
-                      <div className="text-sm text-muted-foreground">Tests Passed</div>
-                      <div className="font-semibold text-white">
-                        {battleData.participants[selectedParticipant].testsPassed}/{battleData.participants[selectedParticipant].totalTests}
-                      </div>
-                    </div>
-                    <div className="bg-muted/20 p-3 rounded-md text-center">
-                      <div className="text-sm text-muted-foreground">Language</div>
-                      <div className="font-semibold text-white capitalize">{battleData.participants[selectedParticipant].language}</div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <SpectateSubmissionsPanel
+            participants={battleData.participants}
+            selectedParticipant={selectedParticipant}
+            setSelectedParticipant={setSelectedParticipant}
+            getVerdictColor={getVerdictColor}
+            getVerdictIcon={getVerdictIcon}
+          />
         </div>
       </main>
     </div>

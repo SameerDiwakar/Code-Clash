@@ -6,6 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trophy, Medal, Zap, Target, ArrowLeft, Crown, Star, Code, Flame, User } from 'lucide-react';
+import LeaderboardHeader from '@/components/leaderboard/LeaderboardHeader';
+import LeaderboardSortControls from '@/components/leaderboard/LeaderboardSortControls';
+import LeaderboardPodium from '@/components/leaderboard/LeaderboardPodium';
+import LeaderboardTable from '@/components/leaderboard/LeaderboardTable';
 
 interface LeaderboardEntry {
   id: string;

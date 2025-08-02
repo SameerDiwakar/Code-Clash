@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const FeaturedBattles = () => (
   <div className="text-center">
@@ -25,9 +26,11 @@ const FeaturedBattles = () => (
               <div className="text-white font-semibold">DevNinja{battle}</div>
             </div>
             <div className="text-slate-400 text-sm">Dynamic Programming Challenge</div>
-            <Button variant="outline" size="sm" className="w-full border-cyan-400 text-cyan-400 hover:bg-cyan-400/20">
-              Spectate Battle
-            </Button>
+            <Link to='/spectate/:battleId'>
+              <Button variant="outline" size="sm" className="w-full border-cyan-400 text-cyan-400 hover:bg-cyan-400/20">
+                Spectate Battle
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       ))}
