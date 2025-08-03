@@ -34,6 +34,7 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
       toast.error('Password must be at least 6 characters');
       return;
     }
+
     setIsLoading(true);
     try {
       const success = await register(email, username, password);
@@ -43,7 +44,7 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
       } else {
         toast.error('Registration failed. Please try again.');
       }
-    } catch (error) {
+    } catch {
       toast.error('Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -102,11 +103,7 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
             className="absolute right-0 top-0 h-full px-3 text-slate-400 hover:text-cyan-400"
             onClick={() => setShowPassword(!showPassword)}
           >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
         </div>
       </div>
@@ -131,11 +128,7 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
             className="absolute right-0 top-0 h-full px-3 text-slate-400 hover:text-cyan-400"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
           >
-            {showConfirmPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
+            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
         </div>
       </div>
@@ -160,4 +153,4 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
   );
 };
 
-export default RegisterForm; 
+export default RegisterForm;

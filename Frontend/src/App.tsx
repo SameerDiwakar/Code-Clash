@@ -17,9 +17,16 @@ import Profile from "./pages/Profile";
 import Leaderboard from "./pages/Leaderboard";
 import { SpectateBattle } from "./pages/SpectateBattle";
 import NotFound from "./pages/NotFound";
+import axios from "axios";
 
 const queryClient = new QueryClient();
 
+axios.defaults.withCredentials = true;
+axios.defaults.baseURL =
+  window.location.hostname === "localhost"
+    ? "http://localhost:4000"
+    : "http://localhost:3000";
+    
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>

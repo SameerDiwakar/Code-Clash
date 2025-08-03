@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import axios from 'axios';
 
 interface User {
   id: string;
@@ -10,7 +11,7 @@ interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, username: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -18,7 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
@@ -33,84 +34,99 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is stored in localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Error parsing stored user:', error);
-        localStorage.removeItem('user');
-      }
-    }
-    setIsLoading(false);
+    checkAuthStatus();
   }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const { data } = await axios.get('http://localhost:4000/profile', {
+        withCredentials: true,
+      });
+      if (data) {
+        setUser({
+          id: data._id,
+          email: data.email,
+          username: data.username,
+        });
+      } else {
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Auth check error:', error);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Mock authentication - replace with real API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (email && password) {
-        const mockUser: User = {
-          id: '1',
-          email,
-          username: email.split('@')[0]
-        };
-        setUser(mockUser);
-        localStorage.setItem('user', JSON.stringify(mockUser));
-        return true;
+      const { data } = await axios.post(
+        'http://localhost:4000/login',
+        { email, password },
+        { withCredentials: true }
+      );
+      setUser({
+        id: data._id,
+        email: data.email,
+        username: data.username,
+      });
+      return true;
+    } catch (error: any) {
+      if (error.response) {
+        console.error('Login failed:', error.response.data.message || error.response.statusText);
+      } else {
+        console.error('Login error:', error.message);
       }
-      return false;
-    } catch (error) {
-      console.error('Login error:', error);
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const register = async (email: string, username: string, password: string): Promise<boolean> => {
+  const register = async (
+    email: string,
+    username: string,
+    password: string
+  ): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Mock registration - replace with real API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (email && username && password) {
-        const mockUser: User = {
-          id: '1',
-          email,
-          username
-        };
-        setUser(mockUser);
-        localStorage.setItem('user', JSON.stringify(mockUser));
-        return true;
+      const { data } = await axios.post(
+        'http://localhost:4000/register',
+        { email, username, password },
+        { withCredentials: true }
+      );
+      setUser({
+        id: data._id,
+        email: data.email,
+        username: data.username,
+      });
+      return true;
+    } catch (error: any) {
+      if (error.response) {
+        console.error('Registration failed:', error.response.data.message || error.response.statusText);
+      } else {
+        console.error('Registration error:', error.message);
       }
-      return false;
-    } catch (error) {
-      console.error('Registration error:', error);
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-  };
-
-  const value = {
-    user,
-    login,
-    register,
-    logout,
-    isLoading
+  const logout = async (): Promise<void> => {
+    try {
+      await axios.post('http://localhost:4000/logout', {}, { withCredentials: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+    }
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

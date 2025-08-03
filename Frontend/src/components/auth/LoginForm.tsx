@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,15 @@ interface LoginFormProps {
   onSuccess?: () => void;
 }
 
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[a-zA-Z]/, 'Password must include at least one letter')
+    .regex(/[0-9]/, 'Password must include at least one number'),
+});
+
 const LoginForm = ({ onSuccess }: LoginFormProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,10 +29,13 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error('Please fill in all fields');
+    const parsed = loginSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      const errorMsg = parsed.error.errors[0]?.message || 'Invalid input';
+      toast.error(errorMsg);
       return;
     }
+
     setIsLoading(true);
     try {
       const success = await login(email, password);
@@ -32,7 +45,7 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
       } else {
         toast.error('Invalid credentials. Try again!');
       }
-    } catch (error) {
+    } catch {
       toast.error('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -76,11 +89,7 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
             className="absolute right-0 top-0 h-full px-3 text-slate-400 hover:text-cyan-400"
             onClick={() => setShowPassword(!showPassword)}
           >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
         </div>
       </div>
@@ -105,4 +114,4 @@ const LoginForm = ({ onSuccess }: LoginFormProps) => {
   );
 };
 
-export default LoginForm; 
+export default LoginForm;
