@@ -41,7 +41,7 @@ app.use(cors({
 app.use('/uploads', express.static('uploads'));
 
 // Routes
-app.use('/', appRoute)
+app.use('/api', appRoute)
 
 // Start server and initialize scheduler
 app.listen(port, () => {

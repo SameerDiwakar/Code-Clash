@@ -41,7 +41,7 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
   const fetchProfile = async (): Promise<void> => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get('http://localhost:4000/user-profile', {
+      const { data } = await axios.get('http://localhost:4000/api/user-profile', {
         withCredentials: true,
       });
       setProfile(data);
@@ -66,7 +66,7 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
     setIsLoading(true);
     try {
       const { data } = await axios.put(
-        'http://localhost:4000/user-profile',
+        'http://localhost:4000/api/user-profile',
         profileData,
         { withCredentials: true }
       );
@@ -90,7 +90,7 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
       formData.append('profilePicture', file);
 
       const { data } = await axios.post(
-        'http://localhost:4000/user-profile/picture',
+        'http://localhost:4000/api/user-profile/picture',
         formData,
         {
           withCredentials: true,
@@ -117,7 +117,7 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
     setIsLoading(true);
     try {
       const { data } = await axios.delete(
-        'http://localhost:4000/user-profile/picture',
+        'http://localhost:4000/api/user-profile/picture',
         { withCredentials: true }
       );
 

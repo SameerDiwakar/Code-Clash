@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +25,32 @@ interface Submission {
   time: string;
 }
 
+interface BattleProblem {
+  title: string;
+  description: string;
+  difficulty: string;
+}
+
+export interface Battle {
+  _id: string;
+  title: string;
+  description: string;
+  creator: {
+    _id: string;
+    username: string;
+  };
+  participants: string[];
+  maxParticipants: number;
+  status: 'Draft' | 'Scheduled' | 'Active' | 'Completed' | 'Cancelled';
+  startTime: string;
+  endTime?: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  problems: BattleProblem[];
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface ActiveBattle {
   id: string;
   title: string;
@@ -31,72 +58,102 @@ interface ActiveBattle {
   maxParticipants: number;
   difficulty: 'Easy' | 'Medium' | 'Hard';
   timeRemaining: string;
+  status: string;
 }
 
-const mockSubmissions: Submission[] = [
+const mockSubmissions = [
   {
     id: '1',
     challenge: 'Array Max Result',
-    status: 'Success',
+    status: 'Success' as const,
     language: 'JavaScript',
     time: '2 minutes ago'
   },
   {
     id: '2',
     challenge: 'Binary Tree Traversal',
-    status: 'Failed',
+    status: 'Failed' as const,
     language: 'Python',
     time: '5 minutes ago'
   },
   {
     id: '3',
     challenge: 'Graph Shortest Path',
-    status: 'Pending',
+    status: 'Pending' as const,
     language: 'Java',
     time: '10 minutes ago'
   },
   {
     id: '4',
     challenge: 'String Compression',
-    status: 'Success',
+    status: 'Success' as const,
     language: 'C++',
     time: '15 minutes ago'
-  }
-];
-
-const mockActiveBattles: ActiveBattle[] = [
-  {
-    id: '101',
-    title: 'Quick Code Clash',
-    participants: 45,
-    maxParticipants: 50,
-    difficulty: 'Medium',
-    timeRemaining: '25:30'
-  },
-  {
-    id: '102',
-    title: 'Algorithm Arena',
-    participants: 20,
-    maxParticipants: 30,
-    difficulty: 'Hard',
-    timeRemaining: '1:12:45'
-  },
-  {
-    id: '103',
-    title: 'Beginner Bootcamp',
-    participants: 15,
-    maxParticipants: 20,
-    difficulty: 'Easy',
-    timeRemaining: '45:00'
   }
 ];
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [activeBattles, setActiveBattles] = useState<ActiveBattle[]>([]);
+  const [isLoadingBattles, setIsLoadingBattles] = useState(true);
+  const [battlesError, setBattlesError] = useState<string | null>(null);
 
-  // Simulate loading
-  setTimeout(() => setIsLoading(false), 1000);
+  // Fetch active battles
+  useEffect(() => {
+    const fetchActiveBattles = async () => {
+      try {
+        const response = await axios.get('http://localhost:4000/api/battles', {
+          params: { status: 'Active' },
+          withCredentials: true
+        });
+        
+        // Transform the battles to match the ActiveBattle interface
+        const formattedBattles = response.data.battles.map((battle: Battle) => ({
+          id: battle._id,
+          title: battle.title,
+          participants: battle.participants?.length || 0,
+          maxParticipants: battle.maxParticipants,
+          difficulty: battle.difficulty,
+          timeRemaining: calculateTimeRemaining(battle.endTime),
+          status: battle.status
+        }));
+        
+        setActiveBattles(formattedBattles);
+      } catch (error) {
+        console.error('Error fetching battles:', error);
+        setBattlesError('Failed to load active battles');
+      } finally {
+        setIsLoadingBattles(false);
+      }
+    };
+
+    // Simulate initial loading
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+      fetchActiveBattles();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Helper function to calculate time remaining
+  const calculateTimeRemaining = (endTime?: string): string => {
+    if (!endTime) return '--:--';
+    
+    const end = new Date(endTime).getTime();
+    const now = new Date().getTime();
+    const diff = Math.max(0, end - now);
+    
+    if (diff <= 0) return '00:00';
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return hours > 0 
+      ? `${hours}:${minutes.toString().padStart(2, '0')}:00`
+      : `${minutes}:00`;
+  };
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -119,7 +176,16 @@ const Dashboard = () => {
         <DashboardStatsOverview />
 
         {/* Active Battles */}
-        <ActiveBattlesList battles={mockActiveBattles} />
+        {battlesError ? (
+          <div className="text-red-500 p-4 bg-red-50 rounded-md">
+            {battlesError}
+          </div>
+        ) : (
+          <ActiveBattlesList 
+            battles={activeBattles} 
+            loading={isLoadingBattles} 
+          />
+        )}
 
         {/* Recent Submissions */}
         <RecentSubmissionsTable submissions={mockSubmissions} />

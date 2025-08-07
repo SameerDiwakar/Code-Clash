@@ -50,12 +50,12 @@ router.post("/user-profile/picture", verifyToken, upload.single('profilePicture'
 router.delete("/user-profile/picture", verifyToken, deleteProfilePicture);
 
 // Battle routes
-router.post("/battles", createBattle);
+router.post("/battles", verifyToken, createBattle);
 router.get("/battles", getBattles);
-router.get("/battles/user", getUserBattles);
+router.get("/battles/user", verifyToken, getUserBattles);
 router.get("/battles/:id", getBattleById);
-router.post("/battles/:id/join", joinBattle);
-router.post("/battles/:id/start", startBattle);
-router.post("/battles/:battleId/problems/:problemId/submit", submitSolution);
+router.post("/battles/:id/join", verifyToken, joinBattle);
+router.post("/battles/:id/start", verifyToken, startBattle);
+router.post("/battles/:battleId/problems/:problemId/submit", verifyToken, submitSolution);
 
 module.exports = router;

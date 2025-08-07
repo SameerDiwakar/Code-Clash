@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const checkAuthStatus = async () => {
     try {
-      const { data } = await axios.get('http://localhost:4000/profile', {
+      const { data } = await axios.get('http://localhost:4000/api/profile', {
         withCredentials: true,
       });
       if (data) {
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setIsLoading(true);
     try {
       const { data } = await axios.post(
-        'http://localhost:4000/login',
+        'http://localhost:4000/api/login',
         { email, password },
         { withCredentials: true }
       );
@@ -93,7 +93,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setIsLoading(true);
     try {
       const { data } = await axios.post(
-        'http://localhost:4000/register',
+        'http://localhost:4000/api/register',
         { email, username, password },
         { withCredentials: true }
       );
@@ -117,7 +117,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const logout = async (): Promise<void> => {
     try {
-      await axios.post('http://localhost:4000/logout', {}, { withCredentials: true });
+      await axios.post('http://localhost:4000/api/logout', {}, { withCredentials: true });
     } catch (error) {
       console.error('Logout error:', error);
     } finally {

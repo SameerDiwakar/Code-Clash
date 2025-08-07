@@ -1,27 +1,13 @@
 const Battle = require('../models/battle');
 const User = require('../models/user');
-const jwt = require('jsonwebtoken');
-
-// Helper function to get user from token
-const getUserFromToken = async (req) => {
-  const token = req.cookies.token;
-  if (!token) {
-    throw new Error('No token provided');
-  }
-  
-  const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-  const user = await User.findById(decoded.id);
-  if (!user) {
-    throw new Error('User not found');
-  }
-  
-  return user;
-};
 
 // Create a new battle
 const createBattle = async (req, res) => {
   try {
-    const user = await getUserFromToken(req);
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     
     const {
       title,
@@ -81,7 +67,7 @@ const createBattle = async (req, res) => {
     });
 
     await battle.save();
-    await battle.populate('creator', 'name email');
+    await battle.populate('creator', 'username email');
 
     res.status(201).json({
       message: 'Battle created successfully',
@@ -111,7 +97,11 @@ const getBattles = async (req, res) => {
 
     const filter = {};
     
-    if (status) filter.status = status;
+    if (status) {
+      // Handle comma-separated status values
+      const statusArray = status.split(',').map(s => s.trim());
+      filter.status = statusArray.length > 1 ? { $in: statusArray } : status;
+    }
     if (difficulty) filter.difficulty = difficulty;
     if (creator) filter.creator = creator;
     if (isPublic !== undefined) filter.isPublic = isPublic === 'true';
@@ -125,7 +115,7 @@ const getBattles = async (req, res) => {
     }
 
     const battles = await Battle.find(filter)
-      .populate('creator', 'name email')
+      .populate('creator', 'username email')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -153,9 +143,9 @@ const getBattleById = async (req, res) => {
     const { id } = req.params;
     
     const battle = await Battle.findById(id)
-      .populate('creator', 'name email')
-      .populate('participants.user', 'name email')
-      .populate('leaderboard.user', 'name email');
+      .populate('creator', 'username email')
+      .populate('participants.user', 'username email')
+      .populate('leaderboard.user', 'username email');
 
     if (!battle) {
       return res.status(404).json({
@@ -176,7 +166,10 @@ const getBattleById = async (req, res) => {
 // Join a battle
 const joinBattle = async (req, res) => {
   try {
-    const user = await getUserFromToken(req);
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     const { id } = req.params;
 
     const battle = await Battle.findById(id);
@@ -216,7 +209,10 @@ const joinBattle = async (req, res) => {
 // Start a battle (for creators)
 const startBattle = async (req, res) => {
   try {
-    const user = await getUserFromToken(req);
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     const { id } = req.params;
 
     const battle = await Battle.findById(id);
@@ -258,7 +254,10 @@ const startBattle = async (req, res) => {
 // Get user's battles
 const getUserBattles = async (req, res) => {
   try {
-    const user = await getUserFromToken(req);
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     const { type = 'all' } = req.query; // 'created', 'joined', 'all'
 
     let filter = {};
@@ -275,7 +274,7 @@ const getUserBattles = async (req, res) => {
     }
 
     const battles = await Battle.find(filter)
-      .populate('creator', 'name email')
+      .populate('creator', 'username email')
       .sort({ createdAt: -1 });
 
     res.json({ battles });
@@ -291,7 +290,10 @@ const getUserBattles = async (req, res) => {
 // Submit solution for a problem
 const submitSolution = async (req, res) => {
   try {
-    const user = await getUserFromToken(req);
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     const { battleId, problemId } = req.params;
     const { code, language } = req.body;
 

@@ -106,7 +106,6 @@ const battleSchema = new Schema({
   },
   endTime: {
     type: Date,
-    required: true
   },
   isPublic: {
     type: Boolean,
@@ -174,7 +173,7 @@ battleSchema.statics.getActiveBattles = function() {
     startTime: { $lte: now },
     endTime: { $gte: now },
     isPublic: true
-  }).populate('creator', 'name email');
+  }).populate('creator', 'username email');
 };
 
 const battleModel = mongoose.model('Battle', battleSchema);

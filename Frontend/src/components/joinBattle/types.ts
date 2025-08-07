@@ -1,12 +1,25 @@
 export interface Battle {
+  _id: string;
   id: string;
   title: string;
-  problemsCount: number;
+  description: string;
+  problems: Array<{
+    title: string;
+    description: string;
+    difficulty: string;
+  }>;
   difficulty: 'Easy' | 'Medium' | 'Hard';
-  participants: number;
+  participants: string[];
   maxParticipants: number;
-  duration: string;
-  creator: string;
+  status: 'Draft' | 'Scheduled' | 'Active' | 'Completed' | 'Cancelled';
   startTime: string;
-  prizePool?: string;
+  endTime?: string;
+  duration: number;
+  creator: {
+    _id: string;
+    username: string;
+  };
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
 }

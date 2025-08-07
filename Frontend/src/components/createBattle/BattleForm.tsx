@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import BattleFormFields from './BattleFormFields';
+import axios from 'axios';
 
 interface Problem {
   title: string;
@@ -102,57 +103,52 @@ const BattleForm = () => {
     event.preventDefault();
     setIsSubmitting(true);
 
-    try {
-      // Basic validation
-      if (!title || !description || !difficulty || !duration) {
-        alert('Please fill in all required fields.');
-        return;
-      }
+    
+try {
+  // Basic validation (unchanged)
+  if (!title || !description || !difficulty || !duration) {
+    alert('Please fill in all required fields.');
+    return;
+  }
 
-      // Validate problems
-      for (let i = 0; i < problems.length; i++) {
-        const problem = problems[i];
-        if (!problem.title || !problem.description || !problem.difficulty) {
-          alert(`Problem ${i + 1} is missing required fields.`);
-          return;
-        }
-      }
-
-      const battleData = {
-        title,
-        description,
-        difficulty,
-        duration: parseInt(duration, 10),
-        maxParticipants: parseInt(maxParticipants, 10),
-        startTime: startTime ? new Date(startTime).toISOString() : undefined,
-        isPublic,
-        tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-        problems
-      };
-
-      const response = await fetch('/api/battles', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(battleData),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        alert('Battle created successfully!');
-        navigate('/dashboard');
-      } else {
-        const error = await response.json();
-        alert(`Error: ${error.error || 'Failed to create battle'}`);
-      }
-    } catch (error) {
-      console.error('Error creating battle:', error);
-      alert('Failed to create battle. Please try again.');
-    } finally {
-      setIsSubmitting(false);
+  // Validate problems (unchanged)
+  for (let i = 0; i < problems.length; i++) {
+    const problem = problems[i];
+    if (!problem.title || !problem.description || !problem.difficulty) {
+      alert(`Problem ${i + 1} is missing required fields.`);
+      return;
     }
+  }
+
+  const battleData = {
+    title,
+    description,
+    difficulty,
+    duration: parseInt(duration, 10),
+    maxParticipants: parseInt(maxParticipants, 10),
+    startTime: startTime ? new Date(startTime).toISOString() : undefined,
+    isPublic,
+    tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+    problems
+  };
+
+  const response = await axios.post('/api/battles', battleData, {
+    withCredentials: true // replaces 'credentials: include'
+  });
+
+  alert('Battle created successfully!');
+  navigate('/dashboard');
+} catch (error: any) {
+  console.error('Error creating battle:', error);
+  if (error.response && error.response.data) {
+    alert(`Error: ${error.response.data.error || 'Failed to create battle'}`);
+  } else {
+    alert('Failed to create battle. Please try again.');
+  }
+} finally {
+  setIsSubmitting(false);
+}
+
   };
 
   return (
