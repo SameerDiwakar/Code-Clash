@@ -1,6 +1,209 @@
 const Battle = require('../models/battle');
 const User = require('../models/user');
 
+// Lightweight code execution via Piston (free public API)
+// Docs: https://github.com/engineer-man/piston
+const PISTON_BASE_URL = process.env.PISTON_BASE_URL || 'https://emkc.org/api/v2/piston';
+let cachedRuntimes = null;
+
+async function getFetch() {
+  if (typeof fetch !== 'undefined') return fetch;
+  try {
+    // eslint-disable-next-line global-require
+    const nodeFetch = require('node-fetch');
+    return nodeFetch;
+  } catch (e) {
+    throw new Error('Fetch API not available. Install node-fetch or use Node 18+.');
+  }
+}
+
+// Gemini validation for problem statements (optional)
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_VALIDATION_MODE = (process.env.GEMINI_VALIDATION_MODE || 'block').toLowerCase(); // 'block' | 'warn'
+// Normalize model aliases (only 2.5 family supported)
+function normalizeGeminiModel(input) {
+  const raw = (input || '').trim().toLowerCase();
+  const aliases = new Map([
+    ['2.5', 'gemini-2.5-flash'], // default plain 2.5 -> flash
+    ['gemini-2.5', 'gemini-2.5-flash'],
+    ['2.5-pro', 'gemini-2.5-pro'],
+    ['2.5 pro', 'gemini-2.5-pro'],
+    ['gemini-2.5-pro', 'gemini-2.5-pro'],
+    ['2.5-flash', 'gemini-2.5-flash'],
+    ['2.5 flash', 'gemini-2.5-flash'],
+    ['gemini-2.5-flash', 'gemini-2.5-flash']
+  ]);
+  if (aliases.has(raw)) return aliases.get(raw);
+  // If user already supplied a full ID, pass through
+  if (raw.startsWith('gemini-')) return raw;
+  // Fallback to 2.5-flash only
+  return 'gemini-2.5-flash';
+}
+const GEMINI_MODEL = normalizeGeminiModel(process.env.GEMINI_MODEL || 'gemini-2.5-flash');
+
+async function validateSingleProblemWithGemini(problem) {
+  if (!GEMINI_API_KEY) return { skipped: true };
+  const _fetch = await getFetch();
+  const model = normalizeGeminiModel(GEMINI_MODEL);
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  const prompt = `You are a strict validator for programming problems on a coding battle platform.
+Decide if the problem is coherent, well-posed, and realistically solvable with a deterministic evaluation, not vague or nonsensical.
+If key parts are missing (clear goal, constraints or examples, meaningful testcases), mark invalid.
+Return ONLY strict JSON: {"isValid": boolean, "reason": string, "flags": string[]}. No extra text.
+
+Problem:
+Title: ${problem.title || ''}
+Description: ${problem.description || ''}
+Difficulty: ${problem.difficulty || ''}
+Constraints: ${Array.isArray(problem.constraints) ? problem.constraints.join(' | ') : (problem.constraints || '')}
+Examples: ${Array.isArray(problem.examples) ? problem.examples.map(e => `{in:${e.input||''}, out:${e.output||''}}`).join(' | ') : ''}
+TestCases: ${Array.isArray(problem.testCases) ? problem.testCases.map(t => `{in:${t.input||''}, exp:${t.expectedOutput||''}}`).join(' | ') : ''}
+`;
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }]
+  };
+  const resp = await _fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    // If Gemini fails
+    return { skipped: true, error: `Gemini API error ${resp.status}` };
+  }
+  const data = await resp.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  try {
+    const parsed = JSON.parse(text);
+    return {
+      skipped: false,
+      isValid: !!parsed.isValid,
+      reason: typeof parsed.reason === 'string' ? parsed.reason : '',
+      flags: Array.isArray(parsed.flags) ? parsed.flags : []
+    };
+  } catch (e) {
+    // If response isn't strict JSON, try to extract JSON block
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[0]);
+        return {
+          skipped: false,
+          isValid: !!parsed.isValid,
+          reason: typeof parsed.reason === 'string' ? parsed.reason : '',
+          flags: Array.isArray(parsed.flags) ? parsed.flags : []
+        };
+      } catch {}
+    }
+    return { skipped: true };
+  }
+}
+
+async function validateProblemsWithGemini(problems) {
+  if (!GEMINI_API_KEY) return { skipped: true, results: [] };
+  const results = [];
+  for (let i = 0; i < problems.length; i++) {
+    // Validate sequentially to avoid rate limits
+    // eslint-disable-next-line no-await-in-loop
+    const r = await validateSingleProblemWithGemini(problems[i]);
+    results.push(r);
+  }
+  return { skipped: false, results };
+}
+
+// Local strict validation to catch obvious junk without LLM
+function validateProblemsLocally(problems) {
+  const issues = [];
+  const minDescLen = 60; // tweakable
+  for (let i = 0; i < problems.length; i++) {
+    const p = problems[i] || {};
+    const probIssues = [];
+    const titleOk = typeof p.title === 'string' && p.title.trim().length >= 5;
+    const descOk = typeof p.description === 'string' && p.description.trim().length >= minDescLen;
+    const diffOk = ['Easy', 'Medium', 'Hard'].includes(p.difficulty);
+    const examples = Array.isArray(p.examples) ? p.examples : [];
+    const examplesOk = examples.length >= 1 && examples.every(e => (e && typeof e.input === 'string' && e.input.trim() !== '' && typeof e.output === 'string' && e.output.trim() !== ''));
+    const tcs = Array.isArray(p.testCases) ? p.testCases : [];
+    const tcsOk = tcs.length >= 2 && tcs.every(t => (t && typeof t.input === 'string' && t.input.trim() !== '' && typeof t.expectedOutput === 'string' && t.expectedOutput.trim() !== ''));
+
+    if (!titleOk) probIssues.push('Title too short or missing');
+    if (!descOk) probIssues.push(`Description too short (min ${minDescLen} chars)`);
+    if (!diffOk) probIssues.push('Invalid difficulty');
+    if (!examplesOk) probIssues.push('At least 1 example with non-empty input/output required');
+    if (!tcsOk) probIssues.push('At least 2 test cases with non-empty input/expectedOutput required');
+
+    if (probIssues.length) issues.push({ index: i, reason: probIssues.join('; ') });
+  }
+  return issues;
+}
+
+async function loadPistonRuntimes() {
+  if (cachedRuntimes) return cachedRuntimes;
+  const _fetch = await getFetch();
+  const resp = await _fetch(`${PISTON_BASE_URL}/runtimes`);
+  if (!resp.ok) throw new Error('Failed to load Piston runtimes');
+  cachedRuntimes = await resp.json();
+  return cachedRuntimes;
+}
+
+function mapLanguageToPiston(lang) {
+  if (!lang) return 'python';
+  const l = String(lang).toLowerCase();
+  if (['py', 'python', 'python3'].includes(l)) return 'python';
+  if (['js', 'javascript', 'node', 'nodejs'].includes(l)) return 'javascript';
+  if (['ts', 'typescript'].includes(l)) return 'typescript';
+  if (['cpp', 'c++'].includes(l)) return 'c++';
+  if (['c'].includes(l)) return 'c';
+  if (['java'].includes(l)) return 'java';
+  if (['go', 'golang'].includes(l)) return 'go';
+  if (['rb', 'ruby'].includes(l)) return 'ruby';
+  if (['php'].includes(l)) return 'php';
+  return l; // fallback
+}
+
+async function getLatestVersionFor(lang) {
+  const runtimes = await loadPistonRuntimes();
+  const matches = runtimes.filter(r => r.language === lang);
+  if (matches.length === 0) return null;
+  // Pick the highest version lexicographically (versions are strings like '3.10.0')
+  matches.sort((a, b) => String(a.version).localeCompare(String(b.version)));
+  return matches[matches.length - 1].version;
+}
+
+async function executeCodeWithPiston({ language, code, stdin }) {
+  const _fetch = await getFetch();
+  const lang = mapLanguageToPiston(language);
+  const version = await getLatestVersionFor(lang);
+  if (!version) {
+    return { error: `Language not supported by runtime: ${language}` };
+  }
+  const body = {
+    language: lang,
+    version,
+    files: [{ name: `main.${lang}`, content: code || '' }],
+    stdin: stdin || ''
+  };
+  const resp = await _fetch(`${PISTON_BASE_URL}/execute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    const tx = await resp.text();
+    return { error: `Execution failed: ${resp.status} ${tx}` };
+  }
+  const data = await resp.json();
+  // data.run: { stdout, stderr, code, signal, output }
+  return {
+    stdout: data?.run?.stdout || '',
+    stderr: data?.run?.stderr || '',
+    code: data?.run?.code,
+    time: data?.run?.time,
+    memory: data?.run?.memory,
+    output: data?.run?.output || (data?.run?.stdout || data?.run?.stderr || '')
+  };
+}
+
 // Create a new battle
 const createBattle = async (req, res) => {
   try {
@@ -48,6 +251,43 @@ const createBattle = async (req, res) => {
           error: `Problem ${i + 1} is missing required fields (title, description, difficulty)`
         });
       }
+    }
+
+    // Local strict validation first
+    const localIssues = validateProblemsLocally(problems);
+    if (localIssues.length) {
+      return res.status(400).json({ error: 'Problem validation failed (local)', issues: localIssues });
+    }
+
+    // Gemini validation before persisting
+    try {
+      const validation = await validateProblemsWithGemini(problems);
+      if (validation.skipped) {
+        if (GEMINI_VALIDATION_MODE === 'block') {
+          return res.status(400).json({ error: 'Gemini validation is required but unavailable. Configure GEMINI_API_KEY and GEMINI_MODEL (2.5 / 2.5 pro / 2.5 flash).' });
+        }
+      } else {
+        const issues = [];
+        validation.results.forEach((r, idx) => {
+          if (r.skipped) {
+            if (GEMINI_VALIDATION_MODE === 'block') {
+              issues.push({ index: idx, reason: 'Validation skipped/unavailable for this problem' });
+            }
+            return;
+          }
+          if (r.isValid === false) {
+            issues.push({ index: idx, reason: r.reason, flags: r.flags });
+          }
+        });
+        if (issues.length > 0) {
+          return res.status(400).json({ error: 'One or more problems failed validation (gemini)', issues });
+        }
+      }
+    } catch (gemErr) {
+      if (GEMINI_VALIDATION_MODE === 'block') {
+        return res.status(400).json({ error: 'Gemini validation error', detail: gemErr?.message || String(gemErr) });
+      }
+      console.warn('Gemini validation warning:', gemErr?.message || gemErr);
     }
 
     const battleStartTime = startTime ? new Date(startTime) : new Date(Date.now() + 5 * 60 * 1000); // Default: 5 minutes from now
@@ -427,7 +667,7 @@ const submitSolution = async (req, res) => {
       });
     }
 
-    // Add submission
+    // Add submission (initial: Pending)
     participant.submissions.push({
       problemId,
       code,
@@ -441,14 +681,38 @@ const submitSolution = async (req, res) => {
 
     await battle.save();
 
-    // TODO: Implement code execution and testing logic here
-    // For now, we'll just mark it as accepted with a random score
+    // Execute against all test cases (including hidden)
+    const testCases = Array.isArray(problem.testCases) ? problem.testCases : [];
+    const details = [];
+    let passed = 0;
+    let totalTime = 0;
+    let peakMem = 0;
+    for (const tc of testCases) {
+      const exec = await executeCodeWithPiston({ language, code, stdin: tc.input || '' });
+      const got = (exec.stdout || '').trim();
+      const exp = String(tc.expectedOutput || '').trim();
+      const ok = got === exp;
+      if (ok) passed += 1;
+      totalTime += Number(exec.time || 0);
+      peakMem = Math.max(peakMem, Number(exec.memory || 0));
+      details.push({
+        input: tc.input || '',
+        expected: exp,
+        stdout: exec.stdout || '',
+        stderr: exec.stderr || '',
+        passed: ok
+      });
+      // Optional early stop if heavy: continue full to provide detailed report
+    }
+
     const submission = participant.submissions[participant.submissions.length - 1];
+    const allPassed = passed === testCases.length && testCases.length > 0;
     submission.result = {
-      status: 'Accepted',
-      score: Math.floor(Math.random() * 100) + 1,
-      executionTime: Math.floor(Math.random() * 1000),
-      memory: Math.floor(Math.random() * 10000)
+      status: allPassed ? 'Accepted' : 'Wrong Answer',
+      score: allPassed ? (problem.points || 100) : Math.round(((passed / Math.max(1, testCases.length)) * (problem.points || 100))),
+      executionTime: Math.round(totalTime * 1000) / 1000,
+      memory: peakMem,
+      details
     };
 
     await battle.save();
@@ -463,6 +727,39 @@ const submitSolution = async (req, res) => {
     res.status(500).json({
       error: error.message || 'Failed to submit solution'
     });
+  }
+};
+
+// Run code with custom input (without judging)
+const runCode = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const { battleId, problemId } = req.params;
+    const { code, language, stdin } = req.body;
+
+    const battle = await Battle.findById(battleId);
+    if (!battle) return res.status(404).json({ error: 'Battle not found' });
+    const problem = battle.problems.id(problemId);
+    if (!problem) return res.status(404).json({ error: 'Problem not found' });
+
+    // Optional: ensure user is a participant
+    const participant = battle.participants.find(p => p.user.toString() === user._id.toString());
+    if (!participant) return res.status(400).json({ error: 'You are not a participant in this battle' });
+
+    const exec = await executeCodeWithPiston({ language, code, stdin });
+    if (exec.error) return res.status(400).json({ error: exec.error });
+    res.json({
+      stdout: exec.stdout,
+      stderr: exec.stderr,
+      code: exec.code,
+      time: exec.time,
+      memory: exec.memory,
+      output: exec.output
+    });
+  } catch (error) {
+    console.error('Run code error:', error);
+    res.status(500).json({ error: error.message || 'Failed to run code' });
   }
 };
 
@@ -542,6 +839,7 @@ module.exports = {
   startBattle,
   getUserBattles,
   submitSolution,
+  runCode,
   debugBattle,
   leaveBattle
 };

@@ -20,6 +20,7 @@ const {
   startBattle,
   getUserBattles,
   submitSolution,
+  runCode,
   debugBattle,
   leaveBattle
 } = require("../controller/battleController");
@@ -62,6 +63,7 @@ router.get("/battles/:id/debug", verifyToken, debugBattle);
 router.post("/battles/:id/join", verifyToken, joinBattle);
 router.post("/battles/:id/leave", verifyToken, leaveBattle);
 router.post("/battles/:id/start", verifyToken, startBattle);
+router.post("/battles/:battleId/problems/:problemId/run", verifyToken, runCode);
 router.post("/battles/:battleId/problems/:problemId/submit", verifyToken, submitSolution);
 
 module.exports = router;

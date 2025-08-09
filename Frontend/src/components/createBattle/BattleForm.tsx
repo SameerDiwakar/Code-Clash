@@ -46,6 +46,8 @@ const BattleForm = () => {
     }
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationMessages, setValidationMessages] = useState<string[]>([]);
 
   const addProblem = () => {
     setProblems([...problems, {
@@ -103,56 +105,94 @@ const BattleForm = () => {
     event.preventDefault();
     setIsSubmitting(true);
 
-    
-try {
-  // Basic validation (unchanged)
-  if (!title || !description || !difficulty || !duration) {
-    alert('Please fill in all required fields.');
-    return;
-  }
+    try {
+      // Basic validation (unchanged)
+      if (!title || !description || !difficulty || !duration) {
+        alert('Please fill in all required fields.');
+        return;
+      }
 
-  // Validate problems (unchanged)
-  for (let i = 0; i < problems.length; i++) {
-    const problem = problems[i];
-    if (!problem.title || !problem.description || !problem.difficulty) {
-      alert(`Problem ${i + 1} is missing required fields.`);
-      return;
+      // Validate problems (unchanged)
+      for (let i = 0; i < problems.length; i++) {
+        const problem = problems[i];
+        if (!problem.title || !problem.description || !problem.difficulty) {
+          alert(`Problem ${i + 1} is missing required fields.`);
+          return;
+        }
+      }
+
+      const battleData = {
+        title,
+        description,
+        difficulty,
+        duration: parseInt(duration, 10),
+        maxParticipants: parseInt(maxParticipants, 10),
+        startTime: startTime ? new Date(startTime).toISOString() : undefined,
+        isPublic,
+        tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+        problems
+      };
+
+      const response = await axios.post('/api/battles', battleData, {
+        withCredentials: true,
+        // Treat 400 (validation) as a resolved response so it doesn't throw an AxiosError
+        validateStatus: (status) => (status >= 200 && status < 300) || status === 400
+      });
+
+      if (response.status === 201) {
+        alert('Battle created successfully!');
+        navigate('/dashboard');
+        return;
+      }
+
+      if (response.status === 400) {
+        const data = response.data || {};
+        const msgs: string[] = [];
+        if (data.error) msgs.push(String(data.error));
+        if (Array.isArray(data.issues) && data.issues.length) {
+          data.issues.forEach((it: any) => {
+            const idx = typeof it.index === 'number' ? `Problem ${it.index + 1}: ` : '';
+            const reason = it.reason ? String(it.reason) : 'Invalid problem';
+            const flags = Array.isArray(it.flags) && it.flags.length ? ` (flags: ${it.flags.join(', ')})` : '';
+            msgs.push(`${idx}${reason}${flags}`);
+          });
+        }
+        if (!msgs.length) msgs.push('Battle contains invalid problems.');
+        setValidationMessages(msgs);
+        setShowValidationModal(true);
+        return;
+      }
+
+      // Any other unexpected status
+      alert(`Error: ${response.data?.error || 'Failed to create battle'}`);
+    } catch {
+      // Network or unexpected errors (keep silent in console, show user-friendly message)
+      alert('Failed to create battle. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-  }
-
-  const battleData = {
-    title,
-    description,
-    difficulty,
-    duration: parseInt(duration, 10),
-    maxParticipants: parseInt(maxParticipants, 10),
-    startTime: startTime ? new Date(startTime).toISOString() : undefined,
-    isPublic,
-    tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-    problems
-  };
-
-  const response = await axios.post('/api/battles', battleData, {
-    withCredentials: true // replaces 'credentials: include'
-  });
-
-  alert('Battle created successfully!');
-  navigate('/dashboard');
-} catch (error: any) {
-  console.error('Error creating battle:', error);
-  if (error.response && error.response.data) {
-    alert(`Error: ${error.response.data.error || 'Failed to create battle'}`);
-  } else {
-    alert('Failed to create battle. Please try again.');
-  }
-} finally {
-  setIsSubmitting(false);
-}
 
   };
 
   return (
     <main className="container mx-auto px-6 py-12">
+      {showValidationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowValidationModal(false)} />
+          <div className="relative z-10 w-full max-w-lg rounded-lg shadow-xl border border-purple-500/40 bg-slate-900 text-slate-100 p-6">
+            <h3 className="text-lg font-semibold text-purple-300 mb-3">Battle creation blocked</h3>
+            <p className="text-sm text-slate-300 mb-4">Please fix the following issues before submitting again:</p>
+            <ul className="list-disc pl-5 space-y-2 max-h-64 overflow-auto">
+              {validationMessages.map((m, i) => (
+                <li key={i} className="text-sm">{m}</li>
+              ))}
+            </ul>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => setShowValidationModal(false)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
       <Card className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-purple-500/30 backdrop-blur-sm max-w-3xl mx-auto">
         <CardHeader>
           <CardTitle className="text-purple-400 text-2xl">Design Your Coding Battle</CardTitle>

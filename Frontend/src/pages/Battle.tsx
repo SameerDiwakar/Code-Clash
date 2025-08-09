@@ -44,6 +44,7 @@ const Battle = () => {
   const [customInput, setCustomInput] = useState('');
   const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isParticipant, setIsParticipant] = useState<boolean>(false);
@@ -131,30 +132,59 @@ const Battle = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    
+  const handleRun = async () => {
+    if (!id || !selectedProblem) return;
+    setIsRunning(true);
+    setSubmissionResult(null);
     try {
-      const response = await fetch('/submit-code', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          problemId: selectedProblem?.id,
-          code,
-          language,
-          customInput
-        })
+      const resp = await axios.post(
+        `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/run`,
+        { code, language, stdin: customInput },
+        { withCredentials: true }
+      );
+      const data = resp.data || {};
+      setSubmissionResult({
+        verdict: data.stderr ? 'Runtime Error' : 'Ran',
+        output: (data.output || data.stdout || data.stderr || '').toString(),
+        executionTime: data.time ? `${data.time}s` : undefined,
+        memoryUsed: data.memory ? `${data.memory} KB` : undefined
       });
-
-      const result = await response.json();
-      setSubmissionResult(result);
-    } catch (error) {
-      console.error('Submission error:', error);
+    } catch (e: any) {
+      console.error('Run error:', e);
       setSubmissionResult({
         verdict: 'Error',
-        output: 'Failed to submit code. Please try again.'
+        output: e.response?.data?.error || 'Failed to run code.'
+      });
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!id || !selectedProblem) return;
+    setIsSubmitting(true);
+    setSubmissionResult(null);
+    try {
+      const resp = await axios.post(
+        `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/submit`,
+        { code, language },
+        { withCredentials: true }
+      );
+      const submission = resp.data?.submission;
+      const result = submission?.result || {};
+      setSubmissionResult({
+        verdict: result.status || 'Unknown',
+        output: Array.isArray(result.details)
+          ? result.details.map((d: any, i: number) => `#${i + 1} ${d.passed ? 'PASS' : 'FAIL'}\nInput:\n${d.input}\nExpected:\n${d.expected}\nGot:\n${d.stdout}\n${d.stderr ? `Stderr:\n${d.stderr}` : ''}`).join('\n\n')
+          : 'Submitted.',
+        executionTime: typeof result.executionTime !== 'undefined' ? `${result.executionTime}s` : undefined,
+        memoryUsed: typeof result.memory !== 'undefined' ? `${result.memory} KB` : undefined
+      });
+    } catch (e: any) {
+      console.error('Submission error:', e);
+      setSubmissionResult({
+        verdict: 'Error',
+        output: e.response?.data?.error || 'Failed to submit code. Please try again.'
       });
     } finally {
       setIsSubmitting(false);
@@ -199,6 +229,11 @@ const Battle = () => {
           {selectedProblem && (
             <BattleProblemDetails problem={selectedProblem} />
           )}
+          {/* Custom Input */}
+          <BattleCustomInput
+            customInput={customInput}
+            setCustomInput={setCustomInput}
+          />
           {/* Code Editor */}
           <BattleCodeEditor
             code={code}
@@ -206,17 +241,24 @@ const Battle = () => {
                 language={language}
             setLanguage={setLanguage}
               />
-          {/* Custom Input */}
-          <BattleCustomInput
-            customInput={customInput}
-            setCustomInput={setCustomInput}
-          />
-          {/* Submit Button */}
-          <BattleSubmitButton
-            onSubmit={handleSubmit}
-            isSubmitting={isSubmitting}
-            code={code}
-          />
+          {/* Run & Submit Buttons */}
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleRun}
+              disabled={isRunning || !code.trim()}
+              size="lg"
+              variant="secondary"
+              className="px-6"
+            >
+              {isRunning ? 'Running...' : 'Run Code'}
+            </Button>
+            {/* Submit Button */}
+            <BattleSubmitButton
+              onSubmit={handleSubmit}
+              isSubmitting={isSubmitting}
+              code={code}
+            />
+          </div>
           {leaveError && (
             <div className="mt-2 text-sm text-red-300">{leaveError}</div>
           )}
