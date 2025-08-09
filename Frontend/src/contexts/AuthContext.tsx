@@ -11,7 +11,7 @@ interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, username: string, password: string) => Promise<boolean>;
-  logout: () => Promise<void>;
+  logout: (clearProfileCallback?: () => void) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -115,13 +115,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const logout = async (): Promise<void> => {
+  const logout = async (clearProfileCallback?: () => void): Promise<void> => {
     try {
       await axios.post('http://localhost:4000/api/logout', {}, { withCredentials: true });
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
+      // Clear profile data if callback provided
+      if (clearProfileCallback) {
+        clearProfileCallback();
+      }
     }
   };
 

@@ -18,6 +18,8 @@ interface ProfileContextType {
   updateProfile: (profileData: Partial<Profile>) => Promise<boolean>;
   uploadProfilePicture: (file: File) => Promise<boolean>;
   deleteProfilePicture: () => Promise<boolean>;
+  clearProfile: () => void;
+  deleteAccount: (password: string) => Promise<boolean>;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -134,6 +136,34 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
     }
   };
 
+  const clearProfile = (): void => {
+    setProfile(null);
+  };
+
+  const deleteAccount = async (password: string): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      const { data } = await axios.delete(
+        'http://localhost:4000/api/user-profile/account',
+        {
+          data: { password },
+          withCredentials: true
+        }
+      );
+
+      if (data.success) {
+        setProfile(null);
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <ProfileContext.Provider
       value={{
@@ -143,6 +173,8 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
         updateProfile,
         uploadProfilePicture,
         deleteProfilePicture,
+        clearProfile,
+        deleteAccount,
       }}
     >
       {children}

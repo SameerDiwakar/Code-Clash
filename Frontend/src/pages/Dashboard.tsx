@@ -108,15 +108,26 @@ const Dashboard = () => {
           withCredentials: true
         });
         
-        // Transform the battles to match the ActiveBattle interface
-        const formattedBattles = response.data.battles.map((battle: Battle) => ({
+        // Keep only time-window active battles on the client to avoid server/client TZ mismatch
+        const now = new Date();
+        const activeNow = (b: Battle) => {
+          const start = new Date(b.startTime);
+          const end = b.endTime ? new Date(b.endTime) : undefined;
+          if (!end) return false; // require endTime to compute window
+          return start <= now && end > now;
+        };
+
+        const filtered = (response.data.battles as Battle[]).filter(activeNow);
+
+        // Transform to ActiveBattle interface
+        const formattedBattles = filtered.map((battle: Battle) => ({
           id: battle._id,
           title: battle.title,
           participants: battle.participants?.length || 0,
           maxParticipants: battle.maxParticipants,
-          difficulty: battle.difficulty,
+          difficulty: battle.difficulty as 'Easy' | 'Medium' | 'Hard',
           timeRemaining: calculateTimeRemaining(battle.endTime),
-          status: battle.status
+          status: 'Active'
         }));
         
         setActiveBattles(formattedBattles);
@@ -174,18 +185,6 @@ const Dashboard = () => {
         <DashboardQuickActions />
         {/* Stats Overview */}
         <DashboardStatsOverview />
-
-        {/* Active Battles */}
-        {battlesError ? (
-          <div className="text-red-500 p-4 bg-red-50 rounded-md">
-            {battlesError}
-          </div>
-        ) : (
-          <ActiveBattlesList 
-            battles={activeBattles} 
-            loading={isLoadingBattles} 
-          />
-        )}
 
         {/* Recent Submissions */}
         <RecentSubmissionsTable submissions={mockSubmissions} />

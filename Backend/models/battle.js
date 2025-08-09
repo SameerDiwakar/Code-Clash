@@ -98,7 +98,7 @@ const battleSchema = new Schema({
   status: {
     type: String,
     enum: ['Draft', 'Scheduled', 'Active', 'Completed', 'Cancelled'],
-    default: 'Draft'
+    default: 'Active'
   },
   startTime: {
     type: Date,
@@ -150,26 +150,42 @@ battleSchema.pre('save', function(next) {
   next();
 });
 
-// Method to check if battle is active
+// Method to check if battle is active (time-window based)
 battleSchema.methods.isActive = function() {
   const now = new Date();
-  return this.status === 'Active' && now >= this.startTime && now <= this.endTime;
+  return this.startTime && this.endTime && now >= this.startTime && now <= this.endTime;
 };
 
 // Method to check if user can join
 battleSchema.methods.canUserJoin = function(userId) {
-  if (this.status !== 'Scheduled' && this.status !== 'Active') return false;
+  const now = new Date();
+  
+  // Can't join if battle is completed or cancelled
+  if (this.status === 'Completed' || this.status === 'Cancelled') return false;
+  
+  // Must have endTime and startTime to evaluate time window
+  if (!this.startTime || !this.endTime) return false;
+
+  // Can't join if battle has ended
+  if (now >= this.endTime) return false;
+  
+  // Can't join if at max capacity
   if (this.participants.length >= this.maxParticipants) return false;
   
+  // Can't join if already joined
   const alreadyJoined = this.participants.some(p => p.user.toString() === userId.toString());
-  return !alreadyJoined;
+  if (alreadyJoined) return false;
+  
+  // Allow join from 15 minutes before start until end time
+  const fifteenMinutes = 15 * 60 * 1000;
+  const joinOpensAt = new Date(this.startTime.getTime() - fifteenMinutes);
+  return now >= joinOpensAt && now < this.endTime;
 };
 
 // Static method to get active battles
 battleSchema.statics.getActiveBattles = function() {
   const now = new Date();
   return this.find({
-    status: 'Active',
     startTime: { $lte: now },
     endTime: { $gte: now },
     isPublic: true

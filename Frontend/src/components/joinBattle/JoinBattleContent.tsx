@@ -13,7 +13,9 @@ const JoinBattleContent = () => {
   const [battles, setBattles] = useState<Battle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Separate errors for loading the list vs. joining a battle
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const limit = 9; // Number of battles per page
@@ -43,10 +45,10 @@ const JoinBattleContent = () => {
       }
 
       setHasMore(response.data.battles.length === limit);
-      setError(null);
+      setLoadError(null);
     } catch (err) {
       console.error('Error fetching battles:', err);
-      setError('Failed to load battles. Please try again later.');
+      setLoadError('Failed to load battles. Please try again later.');
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
@@ -68,20 +70,55 @@ const JoinBattleContent = () => {
   // Handle joining a battle
   const handleJoinBattle = async (battleId: string) => {
     try {
-      await axios.post(
+      // Pre-check: if already a participant, skip POST join to avoid 400
+      try {
+        const dbg = await axios.get(`http://localhost:4000/api/battles/${battleId}/debug`, { withCredentials: true });
+        const participants = Array.isArray(dbg.data?.participants) ? dbg.data.participants : [];
+        const imIn = participants.some((p: any) => p?.isCurrentUser === true);
+        if (imIn) {
+          navigate(`/battle/${battleId}`);
+          return;
+        }
+      } catch (_) {
+        // If debug fails, continue with join attempt
+      }
+
+      const response = await axios.post(
         `http://localhost:4000/api/battles/${battleId}/join`,
         {},
         { withCredentials: true }
       );
       
+      // Clear any previous join error
+      setJoinError(null);
+      
       // Refresh the battles list to show updated participant count
-      fetchBattles(1, false);
+      await fetchBattles(1, false);
       
       // Navigate to the battle page
       navigate(`/battle/${battleId}`);
-    } catch (err) {
+    } catch (err: any) {
+      // Extract error message from backend response first
+      const errorMessage = err.response?.data?.error || 'Failed to join battle. Please try again.';
+
+      // If user already joined, navigate to the battle instead of showing an error
+      if (
+        err?.response?.status === 400 &&
+        typeof errorMessage === 'string' &&
+        errorMessage.toLowerCase().includes('already joined')
+      ) {
+        navigate(`/battle/${battleId}`);
+        return;
+      }
+      
+      // Log other errors (avoid noisy logs for known 'already joined' case)
       console.error('Error joining battle:', err);
-      setError('Failed to join battle. Please try again.');
+      
+      // Set join error message for display (do not replace the list)
+      setJoinError(errorMessage);
+      
+      // Don't refresh battles list on error to avoid confusion
+      // The user can manually refresh if needed
     }
   };
 
@@ -115,13 +152,13 @@ const JoinBattleContent = () => {
     );
   }
 
-  // Error state
-  if (error) {
+  // List loading error state
+  if (loadError) {
     return (
       <main className="container mx-auto px-6 py-12">
         <div className="text-center py-12">
           <div className="text-red-500 text-lg mb-2">Error loading battles</div>
-          <p className="text-slate-400">{error}</p>
+          <p className="text-slate-400">{loadError}</p>
           <button 
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 transition-colors"
@@ -135,6 +172,19 @@ const JoinBattleContent = () => {
 
   return (
     <main className="container mx-auto px-6 py-12">
+      {joinError && (
+        <div className="mb-6 rounded-md border border-red-500/30 bg-red-500/10 p-4 text-red-300">
+          <div className="flex items-center justify-between">
+            <span>{joinError}</span>
+            <button
+              onClick={() => setJoinError(null)}
+              className="text-xs underline hover:no-underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       <BattleSearchFilters
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}

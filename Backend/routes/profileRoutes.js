@@ -6,7 +6,8 @@ const {
   getProfile,
   updateProfile,
   uploadProfilePicture,
-  deleteProfilePicture
+  deleteProfilePicture,
+  deleteUserAccount
 } = require('../controller/profileController');
 
 // Get user profile
@@ -20,5 +21,8 @@ router.post('/profile/picture', verifyToken, upload.single('profilePicture'), up
 
 // Delete profile picture
 router.delete('/profile/picture', verifyToken, deleteProfilePicture);
+
+// Delete entire user account
+router.delete('/account', verifyToken, deleteUserAccount);
 
 module.exports = router;

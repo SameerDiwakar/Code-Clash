@@ -85,22 +85,33 @@ const createBattle = async (req, res) => {
 // Get all battles (with filters)
 const getBattles = async (req, res) => {
   try {
-    const {
-      status,
-      difficulty,
-      creator,
-      isPublic,
-      page = 1,
-      limit = 10,
-      search
-    } = req.query;
+    const { page = 1, limit = 10, status, difficulty, search, creator, isPublic } = req.query;
 
     const filter = {};
     
+    // Build dynamic status filtering with time-window awareness for 'Active'
+    const now = new Date();
+    let statusOrConditions = [];
     if (status) {
-      // Handle comma-separated status values
       const statusArray = status.split(',').map(s => s.trim());
-      filter.status = statusArray.length > 1 ? { $in: statusArray } : status;
+      const otherStatuses = statusArray.filter(s => s !== 'Active');
+      // If 'Active' requested, include ONLY time-window active condition
+      if (statusArray.includes('Active')) {
+        statusOrConditions.push({ $and: [ { startTime: { $lte: now } }, { endTime: { $gte: now } } ] });
+      }
+      // If 'Scheduled' requested, include only future scheduled (start in future)
+      if (statusArray.includes('Scheduled')) {
+        statusOrConditions.push({ $and: [ { status: 'Scheduled' }, { startTime: { $gt: now } } ] });
+      }
+      if (otherStatuses.length > 0) {
+        statusOrConditions.push({ status: { $in: otherStatuses } });
+      }
+
+      // If 'Completed' is NOT included, exclude ended battles globally
+      if (!statusArray.includes('Completed')) {
+        // Apply as an additional $and filter later; we'll append to query
+        filter.endTime = { $gt: now };
+      }
     }
     if (difficulty) filter.difficulty = difficulty;
     if (creator) filter.creator = creator;
@@ -114,13 +125,33 @@ const getBattles = async (req, res) => {
       ];
     }
 
-    const battles = await Battle.find(filter)
+    // Combine filters. If we have statusOrConditions, wrap everything in $and to preserve search $or
+    let query = { ...filter };
+    if (statusOrConditions.length > 0) {
+      // Convert simple time-window object into $or group properly
+      const normalizedStatusOr = statusOrConditions; // already normalized above
+      const andClauses = [];
+      // Move existing search $or into $and as well
+      if (query.$or) {
+        andClauses.push({ $or: query.$or });
+        delete query.$or;
+      }
+      // Any remaining simple key filters
+      const remainingKeys = Object.keys(query);
+      if (remainingKeys.length > 0) {
+        andClauses.push(query);
+      }
+      andClauses.push({ $or: normalizedStatusOr });
+      query = { $and: andClauses };
+    }
+
+    const battles = await Battle.find(query)
       .populate('creator', 'username email')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
 
-    const total = await Battle.countDocuments(filter);
+    const total = await Battle.countDocuments(query);
 
     res.json({
       battles,
@@ -178,20 +209,92 @@ const joinBattle = async (req, res) => {
         error: 'Battle not found'
       });
     }
+    
+    console.log('Debug - Battle found:', {
+      id: battle._id,
+      title: battle.title,
+      creator: battle.creator,
+      participantCount: battle.participants.length
+    });
 
-    if (!battle.canUserJoin(user._id)) {
+    // Check if user can join and provide specific error messages
+    const now = new Date();
+    
+    // Check if battle is completed or cancelled
+    if (battle.status === 'Completed' || battle.status === 'Cancelled') {
       return res.status(400).json({
-        error: 'Cannot join this battle'
+        error: `Cannot join a ${battle.status.toLowerCase()} battle`
       });
     }
+    
+    // Check if battle has ended
+    if (battle.endTime && now > battle.endTime) {
+      return res.status(400).json({
+        error: 'This battle has already ended'
+      });
+    }
+    
+    // Check if at max capacity
+    if (battle.participants.length >= battle.maxParticipants) {
+      return res.status(400).json({
+        error: 'Battle is full - maximum participants reached'
+      });
+    }
+    
+    // Check if already joined - this is the main fix
+    console.log('Debug - Battle ID:', id);
+    console.log('Debug - Battle Creator:', battle.creator.toString());
+    console.log('Debug - Current User ID:', user._id.toString());
+    console.log('Debug - User from req.userId:', req.userId);
+    console.log('Debug - User object:', { id: user._id, username: user.username, email: user.email });
+    console.log('Debug - Current participants:', battle.participants.map(p => ({
+      userId: p.user.toString(),
+      joinedAt: p.joinedAt,
+      matchesCurrentUser: p.user.toString() === user._id.toString()
+    })));
+    
+    // More robust participant check with multiple comparison methods
+    const userIdString = user._id.toString();
+    const alreadyJoined = battle.participants.some(p => {
+      const participantIdString = p.user.toString();
+      const match = participantIdString === userIdString;
+      console.log('Debug - Comparing participant:', participantIdString, 'with user:', userIdString, 'match:', match);
+      return match;
+    });
+    
+    console.log('Debug - Already joined check result:', alreadyJoined);
+    console.log('Debug - Is creator trying to join own battle:', battle.creator.toString() === user._id.toString());
+    
+    // Additional debug info about participants
+    console.log('Debug - Total participants in battle:', battle.participants.length);
+    console.log('Debug - Participant user IDs:', battle.participants.map(p => p.user.toString()));
+    
+    if (alreadyJoined) {
+      return res.status(400).json({
+        error: 'You have already joined this battle'
+      });
+    }
+    
+    // For scheduled battles, check if within joining window
+    if (battle.status === 'Scheduled') {
+      const timeUntilStart = battle.startTime.getTime() - now.getTime();
+      const fifteenMinutes = 15 * 60 * 1000;
+      if (timeUntilStart > fifteenMinutes) {
+        const minutesUntilJoin = Math.ceil((timeUntilStart - fifteenMinutes) / (60 * 1000));
+        return res.status(400).json({
+          error: `Battle opens for joining ${minutesUntilJoin} minutes before start time`
+        });
+      }
+    }
 
+    // Add user to participants
     battle.participants.push({
       user: user._id,
       joinedAt: new Date()
     });
 
     await battle.save();
-    await battle.populate('participants.user', 'name email');
+    await battle.populate('participants.user', 'username email');
 
     res.json({
       message: 'Successfully joined the battle',
@@ -363,6 +466,74 @@ const submitSolution = async (req, res) => {
   }
 };
 
+// Debug endpoint to check battle participants
+const debugBattle = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const { id } = req.params;
+    const battle = await Battle.findById(id).populate('participants.user', 'username email');
+    
+    if (!battle) {
+      return res.status(404).json({ error: 'Battle not found' });
+    }
+    
+    res.json({
+      battleId: battle._id,
+      battleTitle: battle.title,
+      currentUserId: user._id,
+      currentUsername: user.username,
+      participants: battle.participants.map(p => ({
+        userId: p.user._id,
+        username: p.user.username,
+        joinedAt: p.joinedAt,
+        isCurrentUser: p.user._id.toString() === user._id.toString()
+      })),
+      participantCount: battle.participants.length,
+      maxParticipants: battle.maxParticipants
+    });
+  } catch (error) {
+    console.error('Debug battle error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Leave battle endpoint (for debugging and cleanup)
+const leaveBattle = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const { id } = req.params;
+    const battle = await Battle.findById(id);
+    
+    if (!battle) {
+      return res.status(404).json({ error: 'Battle not found' });
+    }
+    
+    // Remove user from participants
+    const initialCount = battle.participants.length;
+    battle.participants = battle.participants.filter(p => p.user.toString() !== user._id.toString());
+    const finalCount = battle.participants.length;
+    
+    await battle.save();
+    
+    res.json({
+      message: 'Successfully left the battle',
+      removed: initialCount - finalCount,
+      remainingParticipants: finalCount
+    });
+  } catch (error) {
+    console.error('Leave battle error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   createBattle,
   getBattles,
@@ -370,5 +541,7 @@ module.exports = {
   joinBattle,
   startBattle,
   getUserBattles,
-  submitSolution
+  submitSolution,
+  debugBattle,
+  leaveBattle
 };

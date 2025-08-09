@@ -1,5 +1,6 @@
 require('dotenv').config();
 const User = require("../models/user");
+const Profile = require('../models/profile');
 const bcrypt = require("bcrypt");
 const jwt = require('jsonwebtoken');
 const bcryptSalt = bcrypt.genSaltSync(10);
@@ -9,6 +10,8 @@ const { sendWelcomeEmail, sendProfileUpdateEmail, sendAccountDeletionEmail, send
 const util = require('util');
 const crypto = require('crypto');
 const PasswordResetToken = require('../models/passwordResetToken');
+const path = require('path');
+const fs = require('fs');
 
 
 // Test route function
@@ -166,9 +169,24 @@ const deleteAccount = async (req, res) => {
       return res.status(401).json({ message: "Incorrect password" });
     }
 
+    // Find and delete associated profile
+    const profile = await Profile.findOne({ userId: userData.id });
+    if (profile) {
+      // Delete profile picture file if it exists
+      if (profile.profilePicture) {
+        const filePath = path.join(__dirname, '..', profile.profilePicture);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+      // Delete profile from database
+      await Profile.findByIdAndDelete(profile._id);
+    }
+
     // Send account deletion email (async, don't block response)
     sendAccountDeletionEmail(user.email, user.username).catch(e => console.error('Account deletion email error:', e));
 
+    // Delete user account
     await User.findByIdAndDelete(userData.id);
 
     res.clearCookie('token').json({ message: "Account deleted successfully" });

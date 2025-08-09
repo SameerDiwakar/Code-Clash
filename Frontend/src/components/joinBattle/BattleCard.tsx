@@ -15,6 +15,12 @@ interface BattleCardProps {
 const BattleCard = ({ battle, onJoinBattle }: BattleCardProps) => {
   const [isJoining, setIsJoining] = useState(false);
 
+  const toDate = (val?: string | Date) => {
+    if (!val) return undefined as unknown as Date;
+    if (val instanceof Date) return val;
+    try { return parseISO(val as string); } catch { return new Date(val as string); }
+  };
+
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'Easy': return 'bg-green-900/30 border-green-500/30 text-green-400';
@@ -34,6 +40,16 @@ const BattleCard = ({ battle, onJoinBattle }: BattleCardProps) => {
     }
   };
 
+  const getEffectiveStatus = () => {
+    const now = new Date();
+    const start = toDate(battle.startTime);
+    const hasEnd = !!battle.endTime;
+    const end = hasEnd ? toDate(battle.endTime as any) : undefined;
+    if (hasEnd && end && end <= now) return 'Completed';
+    if (start <= now && (!hasEnd || (end && end > now))) return 'Active';
+    return 'Scheduled';
+  };
+
   const formatDate = (dateString: string) => {
     try {
       const date = parseISO(dateString);
@@ -42,6 +58,97 @@ const BattleCard = ({ battle, onJoinBattle }: BattleCardProps) => {
       console.error('Error formatting date:', e);
       return 'N/A';
     }
+  };
+
+  const formatStartTime = (dateString: string | Date) => {
+    try {
+      const date = toDate(dateString);
+      const now = new Date();
+      if (date > now) {
+        return `Starts ${formatDistanceToNow(date, { addSuffix: true })}`;
+      } else {
+        return `Started ${formatDistanceToNow(date, { addSuffix: true })}`;
+      }
+    } catch (e) {
+      console.error('Error formatting start date:', e);
+      return 'N/A';
+    }
+  };
+
+  const formatEndTime = (dateString: string | Date) => {
+    try {
+      const date = toDate(dateString);
+      const now = new Date();
+      if (date > now) {
+        return `Ends ${formatDistanceToNow(date, { addSuffix: true })}`;
+      } else {
+        return `Ended ${formatDistanceToNow(date, { addSuffix: true })}`;
+      }
+    } catch (e) {
+      console.error('Error formatting end date:', e);
+      return 'N/A';
+    }
+  };
+
+  const canUserJoin = () => {
+    const now = new Date();
+    const effective = getEffectiveStatus();
+    
+    if (effective === 'Completed' || battle.status === 'Cancelled') return false;
+    if (battle.endTime && parseISO(battle.endTime) <= now) return false;
+    if ((battle.participants?.length || 0) >= battle.maxParticipants) return false;
+
+    if (effective === 'Scheduled') {
+      const startTime = parseISO(battle.startTime);
+      const timeUntilStart = startTime.getTime() - now.getTime();
+      const fifteenMinutes = 15 * 60 * 1000;
+      return timeUntilStart <= fifteenMinutes;
+    }
+
+    if (effective === 'Active') return true;
+    return false;
+  };
+
+  const getJoinButtonText = () => {
+    const now = new Date();
+    
+    const effective = getEffectiveStatus();
+    if (effective === 'Completed') return 'Battle Completed';
+    if (battle.status === 'Cancelled') return 'Battle Cancelled';
+    
+    if ((battle.participants?.length || 0) >= battle.maxParticipants) {
+      return 'Battle Full';
+    }
+    
+    const formatMinutes = (mins: number) => {
+      if (mins < 60) return `${mins}m`;
+      const hours = Math.floor(mins / 60);
+      const remMin = mins % 60;
+      if (hours < 24) return remMin ? `${hours}h ${remMin}m` : `${hours}h`;
+      const days = Math.floor(hours / 24);
+      const remH = hours % 24;
+      if (remH === 0) return `${days}d`;
+      return `${days}d ${remH}h`;
+    };
+
+    if (effective === 'Scheduled') {
+      const startTime = parseISO(battle.startTime);
+      const timeUntilStart = startTime.getTime() - now.getTime();
+      const fifteenMinutes = 15 * 60 * 1000;
+      
+      if (timeUntilStart > fifteenMinutes) {
+        const minutesUntilJoin = Math.ceil((timeUntilStart - fifteenMinutes) / (60 * 1000));
+        return `Opens in ${formatMinutes(minutesUntilJoin)}`;
+      } else {
+        return 'Join Battle';
+      }
+    }
+    
+    if (effective === 'Active') {
+      return 'Join Battle';
+    }
+    
+    return effective;
   };
 
   const handleJoinClick = async () => {
@@ -72,8 +179,8 @@ const BattleCard = ({ battle, onJoinBattle }: BattleCardProps) => {
               {battle.creator?.username || 'Unknown'}
             </span>
           </div>
-          <Badge variant="outline" className={getStatusColor(battle.status)}>
-            {battle.status}
+          <Badge variant="outline" className={getStatusColor(getEffectiveStatus())}>
+            {getEffectiveStatus()}
           </Badge>
         </div>
       </CardHeader>
@@ -135,21 +242,25 @@ const BattleCard = ({ battle, onJoinBattle }: BattleCardProps) => {
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-orange-400 flex-shrink-0" />
                     <span className="text-slate-300 truncate" title={new Date(battle.startTime).toLocaleString()}>
-                      {formatDate(battle.startTime)}
+                      {formatStartTime(battle.startTime)}
                     </span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Starts {formatDate(battle.startTime)}</p>
+                  <p>{formatStartTime(battle.startTime)}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
           
-          {battle.status === 'Active' && battle.endTime && (
-            <div className="flex items-center gap-2 text-sm text-amber-400 bg-amber-900/20 border border-amber-500/30 rounded px-3 py-1.5">
+          {battle.endTime && (
+            <div className={`flex items-center gap-2 text-sm rounded px-3 py-1.5 ${
+              parseISO(battle.endTime) > new Date() 
+                ? 'text-amber-400 bg-amber-900/20 border border-amber-500/30'
+                : 'text-red-400 bg-red-900/20 border border-red-500/30'
+            }`}>
               <AlertCircle className="h-4 w-4" />
-              <span>Ends {formatDate(battle.endTime)}</span>
+              <span>{formatEndTime(battle.endTime)}</span>
             </div>
           )}
           
@@ -181,7 +292,7 @@ const BattleCard = ({ battle, onJoinBattle }: BattleCardProps) => {
           
           <Button 
             onClick={handleJoinClick}
-            disabled={isJoining || battle.status !== 'Active'}
+            disabled={isJoining || !canUserJoin()}
             className="w-full bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-semibold disabled:opacity-50 disabled:pointer-events-none"
           >
             {isJoining ? (
@@ -189,10 +300,8 @@ const BattleCard = ({ battle, onJoinBattle }: BattleCardProps) => {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Joining...
               </>
-            ) : battle.status === 'Active' ? (
-              'Join Battle'
             ) : (
-              battle.status
+              getJoinButtonText()
             )}
           </Button>
         </div>

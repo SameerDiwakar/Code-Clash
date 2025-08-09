@@ -2,224 +2,185 @@ require('dotenv').config();
 const Mailgen = require("mailgen");
 const nodemailer = require('nodemailer');
 
-// Welcome email function for new users
+const transporterConfig = {
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL,
+    pass: process.env.APP_PASSWORD,
+  },
+};
+
+const mailGenerator = new Mailgen({
+  theme: "default",
+  product: {
+    name: "CodeClash",
+    link: "https://codeclash.dev", // Replace with actual domain
+  },
+});
+
+// 1. Welcome Email
 const sendWelcomeEmail = async (userEmail, userName) => {
   try {
-    let config = {
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.APP_PASSWORD,
-      },
-    };
-    let transporter = nodemailer.createTransport(config);
-    let MailGenerator = new Mailgen({
-      theme: "default",
-      product: {
-        name: "WaranAI",
-        link: "https://waran-ai.vercel.app",
-      },
-    });
-    let response = {
+    const transporter = nodemailer.createTransport(transporterConfig);
+
+    const emailBody = {
       body: {
-        name: userName || "Valued Customer",
-        intro: "Welcome to WaranAI! 🎉",
+        name: userName || "Coder",
+        intro: "Welcome to CodeClash! 🔥",
         action: {
-          instructions: "We're excited to have you on board. Get started by uploading your first warranty document.",
+          instructions: "Start your first battle or set up your profile:",
           button: {
-            color: "#22BC66",
+            color: "#1D4ED8",
             text: "Go to Dashboard",
-            link: "https://waran-ai.vercel.app/dashboard",
+            link: "https://codeclash.dev/dashboard",
           },
         },
         table: {
           data: [
-            { Feature: "Document Upload", Description: "Upload warranty documents and invoices" },
-            { Feature: "AI Processing", Description: "Automatically extract warranty information" },
-            { Feature: "Smart Reminders", Description: "Get notified before warranties expire" },
-            { Feature: "Easy Management", Description: "Organize and track all your warranties" },
+            { Feature: "Battle Arena", Description: "Join coding battles in real-time" },
+            { Feature: "Profile Showcase", Description: "Highlight your skills & GitHub" },
+            { Feature: "Challenge Requests", Description: "Receive & manage coding challenges" },
+            { Feature: "Live Code Execution", Description: "Compete with instant results" },
           ],
         },
-        outro: "If you have any questions, feel free to reach out to our support team. Happy warranty managing!",
+        outro: "Have questions? Reach out to our team. Let's clash with code!",
       },
     };
-    let mail = MailGenerator.generate(response);
-    let message = {
+
+    const mail = mailGenerator.generate(emailBody);
+    const message = {
       from: process.env.EMAIL,
       to: userEmail,
-      subject: `Welcome to WaranAI, ${userName}! 🎉`,
+      subject: `Welcome to CodeClash, ${userName}! 🚀`,
       html: mail,
     };
+
     const info = await transporter.sendMail(message);
-    // console.log("Welcome email sent successfully:", info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Error sending welcome email:", error);
     return { success: false, error: error.message };
   }
 };
 
-// Profile update confirmation email function
+// 2. Profile Update Email
 const sendProfileUpdateEmail = async (userEmail, userName, updatedFields) => {
   try {
-    let config = {
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.APP_PASSWORD,
-      },
-    };
-    let transporter = nodemailer.createTransport(config);
-    let MailGenerator = new Mailgen({
-      theme: "default",
-      product: {
-        name: "WaranAI",
-        link: "https://waran-ai.vercel.app",
-      },
-    });
-    // Create a list of updated fields for the email
-    const updatedFieldsList = Object.keys(updatedFields).map(field => {
-      const fieldName = field.charAt(0).toUpperCase() + field.slice(1);
-      return `• ${fieldName}`;
-    }).join('<br>');
-    let response = {
+    const transporter = nodemailer.createTransport(transporterConfig);
+    const updatedList = Object.keys(updatedFields)
+      .map(field => `• ${field.charAt(0).toUpperCase() + field.slice(1)}`)
+      .join("<br>");
+
+    const emailBody = {
       body: {
-        name: userName || "Valued Customer",
-        intro: "Your profile has been updated successfully! ✅",
+        name: userName || "Coder",
+        intro: "Your CodeClash profile was updated successfully.",
         action: {
-          instructions: "Your account information has been modified. Here's what was updated:",
+          instructions: "The following fields were updated:",
           button: {
-            color: "#22BC66",
+            color: "#1D4ED8",
             text: "View Profile",
-            link: "https://waran-ai.vercel.app/settings",
+            link: "https://codeclash.dev/settings",
           },
         },
         table: {
           data: [
-            { "Updated Fields": "Changes Made", Details: updatedFieldsList || "Profile information updated" },
+            { "Updated Field(s)": "Details", Change: updatedList || "General info updated" },
           ],
         },
-        outro: "If you didn't make these changes, please contact our support team immediately. Your account security is important to us!",
+        outro: "If this wasn’t you, contact support immediately.",
       },
     };
-    let mail = MailGenerator.generate(response);
-    let message = {
+
+    const mail = mailGenerator.generate(emailBody);
+    const message = {
       from: process.env.EMAIL,
       to: userEmail,
-      subject: `Profile Updated - WaranAI`,
+      subject: `Profile Updated - CodeClash`,
       html: mail,
     };
+
     const info = await transporter.sendMail(message);
-    // console.log("Profile update email sent successfully:", info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Error sending profile update email:", error);
     return { success: false, error: error.message };
   }
 };
 
-// Account deletion confirmation email function
+// 3. Account Deletion Email
 const sendAccountDeletionEmail = async (userEmail, userName) => {
   try {
-    let config = {
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.APP_PASSWORD,
-      },
-    };
-    let transporter = nodemailer.createTransport(config);
-    let MailGenerator = new Mailgen({
-      theme: "default",
-      product: {
-        name: "WaranAI",
-        link: "https://waran-ai.vercel.app",
-      },
-    });
-    let response = {
+    const transporter = nodemailer.createTransport(transporterConfig);
+
+    const emailBody = {
       body: {
-        name: userName || "Valued Customer",
-        intro: "Your WaranAI account has been deleted.",
+        name: userName || "Coder",
+        intro: "Your CodeClash account has been deleted.",
         action: {
-          instructions: "We're sorry to see you go. If this was a mistake or you have feedback, please let us know.",
+          instructions: "We're sorry to see you go. If this was accidental or you have feedback, let us know.",
           button: {
-            color: "#22BC66",
+            color: "#EF4444",
             text: "Contact Support",
-            link: "diwakarsameer27@gmail.com",
+            link: "mailto:support@codeclash.dev",
           },
         },
-        outro: "Thank you for using WaranAI. If you change your mind, you're always welcome back!",
+        outro: "Thank you for being part of CodeClash. You're always welcome back!",
       },
     };
-    let mail = MailGenerator.generate(response);
-    let message = {
+
+    const mail = mailGenerator.generate(emailBody);
+    const message = {
       from: process.env.EMAIL,
       to: userEmail,
-      subject: `Account Deleted - WaranAI`,
+      subject: `Account Deleted - CodeClash`,
       html: mail,
     };
+
     const info = await transporter.sendMail(message);
-    // console.log("Account deletion email sent successfully:", info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Error sending account deletion email:", error);
     return { success: false, error: error.message };
   }
 };
 
-// Password reset email function
+// 4. Password Reset Email
 const sendPasswordResetEmail = async (userEmail, userName, resetUrl) => {
   try {
-    let config = {
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.APP_PASSWORD,
-      },
-    };
-    let transporter = nodemailer.createTransport(config);
-    let MailGenerator = new Mailgen({
-      theme: "default",
-      product: {
-        name: "WaranAI",
-        link: "https://waran-ai.vercel.app",
-      },
-    });
-    let response = {
+    const transporter = nodemailer.createTransport(transporterConfig);
+
+    const emailBody = {
       body: {
-        name: userName || "Valued Customer",
-        intro: "You requested a password reset for your WaranAI account.",
+        name: userName || "Coder",
+        intro: "Password reset requested for your CodeClash account.",
         action: {
-          instructions: "Click the button below to reset your password. This link is valid for 10 minutes and can be used only once.",
+          instructions: "Click below to reset your password. This link is valid for 10 minutes:",
           button: {
-            color: "#22BC66",
+            color: "#1D4ED8",
             text: "Reset Password",
             link: resetUrl,
           },
         },
-        outro: "If you did not request this, you can safely ignore this email. Your password will not be changed.",
+        outro: "Didn’t request this? You can safely ignore this email.",
       },
     };
-    let mail = MailGenerator.generate(response);
-    let message = {
+
+    const mail = mailGenerator.generate(emailBody);
+    const message = {
       from: process.env.EMAIL,
       to: userEmail,
-      subject: `Reset your WaranAI password`,
+      subject: `Reset Your CodeClash Password`,
       html: mail,
     };
+
     const info = await transporter.sendMail(message);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Error sending password reset email:", error);
     return { success: false, error: error.message };
   }
 };
 
-module.exports = { 
-
+module.exports = {
   sendWelcomeEmail,
   sendProfileUpdateEmail,
-
   sendAccountDeletionEmail,
-  sendPasswordResetEmail
-}; 
+  sendPasswordResetEmail,
+};
