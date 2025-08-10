@@ -58,15 +58,16 @@ const deleteProfilePicture = async (req, res) => {
 // Get profile picture (binary)
 const getProfilePicture = async (req, res) => {
   try {
-    const profile = await Profile.findOne({ userId: req.userId }).lean();
+    const profile = await Profile.findOne({ userId: req.userId });
     if (!profile || !profile.profilePictureData || !profile.profilePictureType) {
       return res.status(404).json({ message: 'No profile picture found' });
     }
 
     res.set('Content-Type', profile.profilePictureType);
+    res.set('Content-Length', String(profile.profilePictureData.length));
     // Optional caching headers (adjust as needed)
     res.set('Cache-Control', 'private, max-age=300');
-    return res.status(200).send(Buffer.from(profile.profilePictureData.buffer));
+    return res.status(200).send(profile.profilePictureData);
   } catch (error) {
     console.error('Get profile picture error:', error);
     res.status(500).json({ message: 'Failed to retrieve profile picture' });

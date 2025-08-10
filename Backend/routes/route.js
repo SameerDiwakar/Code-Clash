@@ -31,6 +31,7 @@ const {
   getProfile: getDetailedProfile,
   updateProfile: updateDetailedProfile,
   uploadProfilePicture,
+  getProfilePicture,
   deleteProfilePicture,
   deleteUserAccount
 } = require("../controller/profileController");
@@ -51,6 +52,7 @@ router.post("/reset-password", resetPassword);
 router.get("/user-profile", verifyToken, getDetailedProfile);
 router.put("/user-profile", verifyToken, updateDetailedProfile);
 router.post("/user-profile/picture", verifyToken, upload.single('profilePicture'), uploadProfilePicture);
+router.get("/user-profile/picture", verifyToken, getProfilePicture);
 router.delete("/user-profile/picture", verifyToken, deleteProfilePicture);
 router.delete("/user-profile/account", verifyToken, deleteUserAccount);
 
