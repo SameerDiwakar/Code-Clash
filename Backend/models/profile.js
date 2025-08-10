@@ -31,9 +31,19 @@ const profileSchema = new Schema({
   codingSkills: [{ 
     type: String 
   }],
-  profilePicture: { 
-    type: String, 
-    default: '' 
+  // Backward compatibility: existing relative path if used elsewhere
+  profilePicture: {
+    type: String,
+    default: ''
+  },
+  // New storage in MongoDB
+  profilePictureData: {
+    type: Buffer,
+    default: undefined
+  },
+  profilePictureType: {
+    type: String,
+    default: ''
   },
   createdAt: { 
     type: Date, 

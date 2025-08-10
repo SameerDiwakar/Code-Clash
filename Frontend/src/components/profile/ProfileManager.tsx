@@ -22,7 +22,7 @@ const CODING_SKILLS = [
 ];
 
 const ProfileManager = () => {
-  const { profile, isLoading, fetchProfile, updateProfile, uploadProfilePicture, deleteProfilePicture } = useProfile();
+  const { profile, isLoading, fetchProfile, updateProfile, uploadProfilePicture, deleteProfilePicture, deleteAccount } = useProfile();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -37,6 +37,8 @@ const ProfileManager = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('');
   const [selectedSkill, setSelectedSkill] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -57,6 +59,33 @@ const ProfileManager = () => {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      toast.error('Please enter your password to confirm');
+      return;
+    }
+    const confirmed = window.confirm('This will permanently delete your account and profile. Continue?');
+    if (!confirmed) return;
+    setIsDeleting(true);
+    try {
+      const success = await deleteAccount(deletePassword);
+      if (success) {
+        toast.success('Account deleted successfully');
+        // Optionally redirect to landing/login
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 800);
+      } else {
+        toast.error('Failed to delete account. Check your password and try again.');
+      }
+    } catch (err) {
+      toast.error('Failed to delete account');
+    } finally {
+      setIsDeleting(false);
+      setDeletePassword('');
+    }
   };
 
   const addLanguage = () => {
@@ -150,9 +179,7 @@ const ProfileManager = () => {
     }
   };
 
-  const profileImageUrl = profile?.profilePicture 
-    ? `http://localhost:4000${profile.profilePicture}` 
-    : null;
+  const profileImageUrl = profile?.profilePicture || null;
 
   if (isLoading && !profile) {
     return (
@@ -405,6 +432,42 @@ const ProfileManager = () => {
             'Save Profile'
           )}
         </Button>
+      </div>
+
+      {/* Danger Zone: Delete Account */}
+      <div className="mt-8 bg-red-900/20 rounded-lg p-6 border border-red-500/30">
+        <h2 className="text-xl font-bold text-red-400 mb-4 flex items-center">
+          <Trash2 className="w-5 h-5 mr-2" />
+          Danger Zone
+        </h2>
+        <p className="text-red-300 mb-4">Deleting your account will remove your user and profile data permanently. This action cannot be undone.</p>
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div className="flex-1">
+            <Label htmlFor="deletePassword" className="text-red-300">Confirm Password</Label>
+            <Input
+              id="deletePassword"
+              type="password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              className="bg-slate-800/50 border-red-500/30 text-white focus:border-red-400"
+              placeholder="Enter your password"
+            />
+          </div>
+          <Button
+            onClick={handleDeleteAccount}
+            disabled={isDeleting || !deletePassword}
+            className="bg-red-600 hover:bg-red-700 text-white px-6 py-3"
+          >
+            {isDeleting ? (
+              <>
+                <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Deleting...
+              </>
+            ) : (
+              'Delete Account'
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -40,13 +40,28 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const getPictureObjectUrl = async (): Promise<string> => {
+    try {
+      const res = await axios.get('http://localhost:4000/api/user-profile/picture', {
+        withCredentials: true,
+        responseType: 'blob'
+      });
+      const contentType = res.headers['content-type'] || 'image/*';
+      const blob = new Blob([res.data], { type: contentType });
+      return URL.createObjectURL(blob);
+    } catch (e) {
+      return '';
+    }
+  };
+
   const fetchProfile = async (): Promise<void> => {
     setIsLoading(true);
     try {
       const { data } = await axios.get('http://localhost:4000/api/user-profile', {
         withCredentials: true,
       });
-      setProfile(data);
+      const pictureUrl = await getPictureObjectUrl();
+      setProfile({ ...data, profilePicture: pictureUrl });
     } catch (error: any) {
       console.error('Fetch profile error:', error);
       // Set default profile if none exists
@@ -103,7 +118,10 @@ export const ProfileProvider = ({ children }: ProfileProviderProps) => {
       );
 
       if (data.success) {
-        setProfile(prev => prev ? { ...prev, profilePicture: data.profilePicture } : null);
+        const url = await getPictureObjectUrl();
+        setProfile(prev => prev ? { ...prev, profilePicture: url } : { 
+          displayName: '', bio: '', experienceLevel: 'Beginner', githubProfile: '', preferredLanguages: [], codingSkills: [], profilePicture: url
+        });
         return true;
       }
       return false;
