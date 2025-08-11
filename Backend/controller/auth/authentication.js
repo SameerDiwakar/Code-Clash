@@ -17,9 +17,15 @@ const register = async (req, res) => {
     return res.status(400).json({ message: result.error.errors[0]?.message || 'Invalid input' });
   }
   try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    // Check email uniqueness
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
       return res.status(409).json({ message: 'Email already registered' });
+    }
+    // Check username uniqueness
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) {
+      return res.status(409).json({ message: 'Username already taken' });
     }
     const userDoc = await User.create({
       username,

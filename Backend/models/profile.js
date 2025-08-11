@@ -9,8 +9,9 @@ const profileSchema = new Schema({
     unique: true 
   },
   displayName: { 
-    type: String, 
-    default: '' 
+    type: String,
+    unique: true,
+    sparse: true
   },
   bio: { 
     type: String, 
