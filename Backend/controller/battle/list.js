@@ -20,7 +20,17 @@ const getBattles = async (req, res) => {
     const filter = {};
     
     if (status) {
-      filter.status = status;
+      // Accept comma-separated string or array; build case-insensitive matches
+      const toParts = (val) => (Array.isArray(val) ? val : String(val).split(','))
+        .map(s => String(s).trim())
+        .filter(Boolean);
+
+      const parts = toParts(status);
+      if (parts.length === 1) {
+        filter.status = new RegExp(`^${parts[0]}$`, 'i');
+      } else if (parts.length > 1) {
+        filter.status = { $in: parts.map(p => new RegExp(`^${p}$`, 'i')) };
+      }
     }
     
     if (difficulty) {

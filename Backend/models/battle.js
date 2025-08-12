@@ -60,7 +60,7 @@ const battleSchema = new Schema({
     type: Number,
     required: true, // Duration in minutes
     min: 15,
-    max: 480 // Max 8 hours
+    max: 720 // Max 12 hours
   },
   maxParticipants: {
     type: Number,
@@ -97,8 +97,8 @@ const battleSchema = new Schema({
   }],
   status: {
     type: String,
-    enum: ['Draft', 'Scheduled', 'Active', 'Completed', 'Cancelled'],
-    default: 'Active'
+    enum: ['waiting', 'Draft', 'Scheduled', 'Active', 'Completed', 'Cancelled'],
+    default: 'waiting'
   },
   startTime: {
     type: Date,

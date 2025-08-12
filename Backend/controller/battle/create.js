@@ -39,9 +39,9 @@ const createBattle = async (req, res) => {
       });
     }
 
-    if (!duration || duration < 15 || duration > 480) {
+    if (!duration || duration < 15 || duration > 720) {
       return res.status(400).json({
-        error: 'Duration must be between 15 and 480 minutes'
+        error: 'Duration must be between 15 and 720 minutes'
       });
     }
 

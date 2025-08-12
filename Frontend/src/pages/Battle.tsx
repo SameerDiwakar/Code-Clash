@@ -78,7 +78,8 @@ const Battle = () => {
       setLeaveMessage(null);
       try {
         const resp = await axios.get(`http://localhost:4000/api/battles/${id}` , { withCredentials: true });
-        const battle = resp.data?.battle;
+        // Backend returns the battle object directly; support both shapes for safety
+        const battle = resp.data?.battle || resp.data;
         const backendProblems = Array.isArray(battle?.problems) ? battle.problems : [];
         const mapped: Problem[] = backendProblems.map(mapBackendProblem);
         setProblems(mapped);

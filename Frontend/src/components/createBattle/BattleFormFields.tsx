@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Calendar, Users, Tag } from 'lucide-react';
+import { Plus, Trash2, Calendar, Users, Tag, Wand2 } from 'lucide-react';
+import { problemPresets } from '@/data/problemPresets';
 
 interface Problem {
   title: string;
@@ -50,6 +51,7 @@ interface BattleFormFieldsProps {
   removeTestCase: (problemIndex: number, testCaseIndex: number) => void;
   addExample: (problemIndex: number) => void;
   removeExample: (problemIndex: number, exampleIndex: number) => void;
+  replaceProblem: (index: number, newProblem: Problem) => void;
 }
 
 const BattleFormFields = ({
@@ -77,7 +79,50 @@ const BattleFormFields = ({
   removeTestCase,
   addExample,
   removeExample,
+  replaceProblem,
 }: BattleFormFieldsProps) => {
+  // Duration inputs (Hours + Minutes)
+  const totalMinutes = Math.max(0, parseInt(duration || '0') || 0);
+  const hours = Math.min(12, Math.floor(totalMinutes / 60));
+  const minutes = Math.min(59, totalMinutes % 60);
+
+  const onHoursChange = (val: string) => {
+    const h = Math.min(12, Math.max(0, parseInt(val || '0') || 0));
+    const newTotal = h * 60 + minutes;
+    setDuration(String(Math.min(720, newTotal)));
+  };
+
+  const onMinutesChange = (val: string) => {
+    const m = Math.min(59, Math.max(0, parseInt(val || '0') || 0));
+    const newTotal = hours * 60 + m;
+    setDuration(String(Math.min(720, newTotal)));
+  };
+
+  // Autofill handler using presets
+  const handleAutofill = (problemIndex: number) => {
+    if (!problemPresets.length) return;
+    const preset = problemPresets[Math.floor(Math.random() * problemPresets.length)];
+    // Deep clone to avoid shared refs
+    const clone = JSON.parse(JSON.stringify(preset));
+    const mapped: Problem = {
+      title: clone.title || '',
+      description: clone.description || '',
+      difficulty: clone.difficulty || 'Medium',
+      constraints: clone.constraints || '',
+      examples: Array.isArray(clone.examples) ? clone.examples.map((ex: any) => ({
+        input: String(ex.input ?? ''),
+        output: String(ex.output ?? ''),
+        explanation: String(ex.explanation ?? ''),
+      })) : [{ input: '', output: '', explanation: '' }],
+      testCases: Array.isArray(clone.testCases) ? clone.testCases.map((tc: any) => ({
+        input: String(tc.input ?? ''),
+        expectedOutput: String(tc.expectedOutput ?? ''),
+        isHidden: Boolean(tc.isHidden ?? false),
+      })) : [{ input: '', expectedOutput: '', isHidden: false }],
+      points: typeof clone.points === 'number' ? clone.points : 100,
+    };
+    replaceProblem(problemIndex, mapped);
+  };
   return (
     <div className="space-y-8">
       {/* Basic Battle Information */}
@@ -123,17 +168,34 @@ const BattleFormFields = ({
               </Select>
             </div>
             <div>
-              <Label htmlFor="duration" className="text-slate-300">Duration (minutes) *</Label>
-              <Input
-                id="duration"
-                type="number"
-                placeholder="60"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 mt-1"
-                min="15"
-                max="480"
-              />
+              <Label className="text-slate-300">Duration *</Label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <div>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={hours}
+                    onChange={(e) => onHoursChange(e.target.value)}
+                    className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
+                    min={0}
+                    max={12}
+                  />
+                  <span className="text-xs text-slate-400">Hours (0–12)</span>
+                </div>
+                <div>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={minutes}
+                    onChange={(e) => onMinutesChange(e.target.value)}
+                    className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
+                    min={0}
+                    max={59}
+                  />
+                  <span className="text-xs text-slate-400">Minutes (0–59)</span>
+                </div>
+              </div>
+              <div className="text-xs text-slate-400 mt-1">Current: {Math.min(720, totalMinutes)} minutes</div>
             </div>
             <div>
               <Label htmlFor="maxParticipants" className="text-slate-300">Max Participants</Label>
@@ -210,16 +272,29 @@ const BattleFormFields = ({
                 <CardTitle className="text-cyan-400 text-base">
                   Problem {problemIndex + 1}
                 </CardTitle>
-                {problems.length > 1 && (
+                <div className="flex items-center gap-2">
                   <Button
                     type="button"
-                    onClick={() => removeProblem(problemIndex)}
-                    variant="destructive"
+                    onClick={() => handleAutofill(problemIndex)}
                     size="sm"
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 ring-1 ring-purple-400/40 shadow-md shadow-purple-500/20 px-3 py-1.5 rounded-md"
+                    title="Autofill with a random preset"
+                    aria-label="Autofill problem with a random preset"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    Autofill
                   </Button>
-                )}
+                  {problems.length > 1 && (
+                    <Button
+                      type="button"
+                      onClick={() => removeProblem(problemIndex)}
+                      variant="destructive"
+                      size="sm"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

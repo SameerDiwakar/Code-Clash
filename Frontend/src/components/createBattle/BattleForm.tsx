@@ -101,6 +101,13 @@ const BattleForm = () => {
     }
   };
 
+  // Replace problem helper for Autofill presets
+  const replaceProblem = (index: number, newProblem: Problem) => {
+    const updated = [...problems];
+    updated[index] = newProblem;
+    setProblems(updated);
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsSubmitting(true);
@@ -224,6 +231,7 @@ const BattleForm = () => {
               removeTestCase={removeTestCase}
               addExample={addExample}
               removeExample={removeExample}
+              replaceProblem={replaceProblem}
             />
             <Button 
               type="submit" 

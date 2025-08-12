@@ -34,17 +34,30 @@ const JoinBattleContent = () => {
         params: {
           page: pageNum,
           limit,
-          status: 'Active,Scheduled' // Only show active and scheduled battles
+          // Show battles that users can join. Backend uses lowercase enums and new battles default to 'waiting'.
+          // Include 'waiting', 'active', and 'scheduled' so newly created/upcoming battles appear.
+          status: 'waiting,active,scheduled'
         }
       });
 
-      if (isLoadMore) {
-        setBattles(prev => [...prev, ...response.data.battles]);
-      } else {
-        setBattles(response.data.battles);
+      let fetched = response.data?.battles || [];
+
+      // Fallback: if nothing returned and no local filters applied, try again without status filter
+      if (!isLoadMore && fetched.length === 0 && !searchTerm && difficultyFilter === 'all') {
+        const fallback = await axios.get('http://localhost:4000/api/battles', {
+          withCredentials: true,
+          params: { page: pageNum, limit }
+        });
+        fetched = fallback.data?.battles || [];
       }
 
-      setHasMore(response.data.battles.length === limit);
+      if (isLoadMore) {
+        setBattles(prev => [...prev, ...fetched]);
+      } else {
+        setBattles(fetched);
+      }
+
+      setHasMore(fetched.length === limit);
       setLoadError(null);
     } catch (err) {
       console.error('Error fetching battles:', err);
