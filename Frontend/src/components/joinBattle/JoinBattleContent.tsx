@@ -36,7 +36,9 @@ const JoinBattleContent = () => {
           limit,
           // Show battles that users can join. Backend uses lowercase enums and new battles default to 'waiting'.
           // Include 'waiting', 'active', and 'scheduled' so newly created/upcoming battles appear.
-          status: 'waiting,active,scheduled'
+          status: 'waiting,active,scheduled',
+          includeRecentCompleted: true,
+          recentHours: 24
         }
       });
 
@@ -65,6 +67,23 @@ const JoinBattleContent = () => {
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
+    }
+  };
+
+  // Handle deleting a battle (creator only)
+  const handleDeleteBattle = async (battleId: string) => {
+    try {
+      const ok = window.confirm('Are you sure you want to delete this battle? This action cannot be undone.');
+      if (!ok) return;
+
+      await axios.delete(`http://localhost:4000/api/battles/${battleId}` , { withCredentials: true });
+
+      // Refresh list after delete
+      await fetchBattles(1, false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || 'Failed to delete battle';
+      console.error('Delete battle error:', err);
+      alert(msg);
     }
   };
 
@@ -214,6 +233,7 @@ const JoinBattleContent = () => {
         <BattlesGrid 
           battles={filteredBattles}
           onJoinBattle={handleJoinBattle}
+          onDeleteBattle={handleDeleteBattle}
           isLoadingMore={isLoadingMore}
           onLoadMore={hasMore ? handleLoadMore : undefined}
           hasMore={hasMore}

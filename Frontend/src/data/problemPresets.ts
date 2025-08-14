@@ -79,8 +79,8 @@ export const problemPresets: PresetProblem[] = [
     title: 'Merge Intervals',
     description: 'Given an array of intervals, merge all overlapping intervals.',
     difficulty: 'Medium',
-    constraints: '1 <= intervals.length <= 10^4',
-    examples: [{ input: '[[1,3],[2,6],[8,10],[15,18]]', output: '[[1,6],[8,10],[15,18]]', explanation: '' }],
+    constraints: '1 <= intervals.length <= 10^4\n-10^9 <= start, end <= 10^9\nFor each interval [start,end], start <= end\nOutput must be a list of non-overlapping intervals sorted by start',
+    examples: [{ input: '[[1,3],[2,6],[8,10],[15,18]]', output: '[[1,6],[8,10],[15,18]]', explanation: 'Merge [1,3] and [2,6] -> [1,6]; others remain' }],
     testCases: [
       { input: '[[1,3],[2,6],[8,10],[15,18]]', expectedOutput: '[[1,6],[8,10],[15,18]]', isHidden: false },
       { input: '[[1,4],[4,5]]', expectedOutput: '[[1,5]]', isHidden: true },
@@ -103,8 +103,8 @@ export const problemPresets: PresetProblem[] = [
     title: 'Kth Largest Element in an Array',
     description: 'Find the kth largest element in an unsorted array.',
     difficulty: 'Medium',
-    constraints: '1 <= k <= nums.length <= 10^5',
-    examples: [{ input: 'nums = [3,2,1,5,6,4], k = 2', output: '5', explanation: '' }],
+    constraints: '1 <= nums.length <= 10^5\n-10^9 <= nums[i] <= 10^9\n1 <= k <= nums.length\nOutput is a single integer: the kth largest value',
+    examples: [{ input: 'nums = [3,2,1,5,6,4], k = 2', output: '5', explanation: 'Sorted desc -> [6,5,4,3,2,1], 2nd is 5' }],
     testCases: [
       { input: '3 2 1 5 6 4\n2', expectedOutput: '5', isHidden: false },
       { input: '3 2 3 1 2 4 5 5 6\n4', expectedOutput: '4', isHidden: true },
@@ -115,8 +115,8 @@ export const problemPresets: PresetProblem[] = [
     title: 'Coin Change',
     description: 'Given coins of different denominations and a total amount, compute the fewest coins needed.',
     difficulty: 'Medium',
-    constraints: '1 <= amount <= 10^4',
-    examples: [{ input: 'coins = [1,2,5], amount = 11', output: '3', explanation: '11 = 5 + 5 + 1' }],
+    constraints: '1 <= amount <= 10^4\n1 <= coins.length <= 100\n1 <= coins[i] <= 10^4 (positive integers)\nIf amount cannot be formed, return -1',
+    examples: [{ input: 'coins = [1,2,5], amount = 11', output: '3', explanation: 'Optimal: 5+5+1' }],
     testCases: [
       { input: '1 2 5\n11', expectedOutput: '3', isHidden: false },
       { input: '2\n3', expectedOutput: '-1', isHidden: true },

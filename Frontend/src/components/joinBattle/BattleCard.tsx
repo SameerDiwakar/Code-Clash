@@ -6,19 +6,30 @@ import { Code, Clock, Users, User, Calendar, AlertCircle, Loader2 } from 'lucide
 import { Battle } from './types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface BattleCardProps {
   battle: Battle;
   onJoinBattle: (battleId: string) => void;
+  onDeleteBattle?: (battleId: string) => void;
 }
 
-const BattleCard = ({ battle, onJoinBattle }: BattleCardProps) => {
+const BattleCard = ({ battle, onJoinBattle, onDeleteBattle }: BattleCardProps) => {
   const [isJoining, setIsJoining] = useState(false);
+  const { user } = useAuth();
 
   const toDate = (val?: string | Date) => {
     if (!val) return undefined as unknown as Date;
     if (val instanceof Date) return val;
     try { return parseISO(val as string); } catch { return new Date(val as string); }
+  };
+
+  const isCreator = () => {
+    try {
+      return user?.id && battle?.creator?._id && user.id === battle.creator._id;
+    } catch {
+      return false;
+    }
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -304,6 +315,16 @@ const BattleCard = ({ battle, onJoinBattle }: BattleCardProps) => {
               getJoinButtonText()
             )}
           </Button>
+
+          {isCreator() && onDeleteBattle && (
+            <Button
+              onClick={() => onDeleteBattle(battle._id)}
+              variant="outline"
+              className="w-full border-red-500/40 text-red-300 hover:bg-red-500/10"
+            >
+              Delete Battle
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

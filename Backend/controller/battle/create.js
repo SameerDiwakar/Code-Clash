@@ -26,6 +26,18 @@ const createBattle = async (req, res) => {
       tags
     } = req.body;
 
+    // Normalize problem titles to satisfy schema requirement problems[].normalizedTitle
+    const normalizedProblems = Array.isArray(problems)
+      ? problems.map((p) => {
+          const t = (p?.title ?? '').toString();
+          return {
+            ...p,
+            title: t,
+            normalizedTitle: t.trim().toLowerCase(),
+          };
+        })
+      : [];
+
     // Validation
     if (!title || !description || !problems || !Array.isArray(problems) || problems.length === 0) {
       return res.status(400).json({
@@ -43,6 +55,17 @@ const createBattle = async (req, res) => {
       return res.status(400).json({
         error: 'Duration must be between 15 and 720 minutes'
       });
+    }
+
+    // Early duplicate check (robust): try normalizedTitle and collation fallback
+    const norm = String(title).trim().toLowerCase();
+    let existing = await Battle.findOne({ normalizedTitle: norm });
+    if (!existing) {
+      existing = await Battle.findOne({ title: String(title).trim() })
+        .collation({ locale: 'en', strength: 2 });
+    }
+    if (existing) {
+      return res.status(409).json({ error: 'A battle with this title already exists. Please choose a different title.' });
     }
 
     // Validate problems
@@ -75,22 +98,31 @@ const createBattle = async (req, res) => {
     }
 
     // Validate problems locally
-    const localIssues = validateProblemsLocally(problems);
+    const localIssues = validateProblemsLocally(normalizedProblems);
     if (localIssues.length) {
       return res.status(400).json({ error: 'Problem validation failed (local)', issues: localIssues });
     }
 
-    // Gemini validation
+    // Gemini validation (only blocking when GEMINI_VALIDATION_MODE === 'block')
     try {
-      const validation = await validateProblemsWithGemini(problems);
-      if (validation.skipped) {
+      const result = await validateProblemsWithGemini(normalizedProblems);
+      if (result.skipped) {
         if (GEMINI_VALIDATION_MODE === 'block') {
           return res.status(400).json({ error: 'Gemini validation is required but unavailable.' });
         }
-      } else {
-        const issues = validation.issues || [];
-        if (issues.length > 0) {
-          return res.status(400).json({ error: 'One or more problems failed validation (gemini)', issues });
+      } else if (Array.isArray(result.results)) {
+        const issues = [];
+        result.results.forEach((r, idx) => {
+          if (!r || r.skipped) return;
+          if (r.isValid === false) {
+            issues.push({ index: idx, reason: r.reason || 'Invalid per Gemini' });
+          }
+        });
+        if (issues.length) {
+          if (GEMINI_VALIDATION_MODE === 'block') {
+            return res.status(400).json({ error: 'One or more problems failed validation (gemini)', issues });
+          }
+          console.warn('Gemini reported issues (non-blocking):', issues);
         }
       }
     } catch (gemErr) {
@@ -103,12 +135,12 @@ const createBattle = async (req, res) => {
     const battleStartTime = startTime ? new Date(startTime) : new Date(Date.now() + 5 * 60 * 1000); // Default: 5 minutes from now
 
     const battle = new Battle({
-      title,
-      description,
-      problems,
+      title: title.trim(),
+      description: description.trim(),
+      problems: normalizedProblems,
       difficulty,
       duration,
-      maxParticipants: maxParticipants || 10,
+      maxParticipants: maxParticipants || 100,
       startTime: battleStartTime,
       isPublic: isPublic !== false, // Default to true
       tags: tags || [],
@@ -132,8 +164,12 @@ const createBattle = async (req, res) => {
     });
 
   } catch (error) {
+    // Handle duplicate title error from unique index
+    if (error && error.code === 11000 && (error.keyPattern?.title || (error.keyValue && Object.prototype.hasOwnProperty.call(error.keyValue, 'title')))) {
+      return res.status(409).json({ error: 'A battle with this title already exists. Please choose a different title.' });
+    }
     console.error('Create battle error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message || 'Failed to create battle'
     });
   }

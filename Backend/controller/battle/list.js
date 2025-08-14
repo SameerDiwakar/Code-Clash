@@ -13,12 +13,15 @@ const getBattles = async (req, res) => {
       page = 1,
       limit = 10,
       sortBy = 'createdAt',
-      sortOrder = 'desc'
+      sortOrder = 'desc',
+      includeRecentCompleted,
+      recentHours
     } = req.query;
 
     // Build filter object
     const filter = {};
     
+    let statusFilter = null;
     if (status) {
       // Accept comma-separated string or array; build case-insensitive matches
       const toParts = (val) => (Array.isArray(val) ? val : String(val).split(','))
@@ -27,9 +30,9 @@ const getBattles = async (req, res) => {
 
       const parts = toParts(status);
       if (parts.length === 1) {
-        filter.status = new RegExp(`^${parts[0]}$`, 'i');
+        statusFilter = new RegExp(`^${parts[0]}$`, 'i');
       } else if (parts.length > 1) {
-        filter.status = { $in: parts.map(p => new RegExp(`^${p}$`, 'i')) };
+        statusFilter = { $in: parts.map(p => new RegExp(`^${p}$`, 'i')) };
       }
     }
     
@@ -59,8 +62,37 @@ const getBattles = async (req, res) => {
     const sort = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
+    // Include recently completed battles if requested
+    let queryFilter = { ...filter };
+    const wantRecentCompleted = String(includeRecentCompleted).toLowerCase() === 'true';
+    if (wantRecentCompleted) {
+      const hours = Number.isFinite(Number(recentHours)) ? Math.max(1, parseInt(recentHours)) : 24;
+      const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
+      const completedClause = { status: new RegExp('^Completed$', 'i'), endTime: { $gte: cutoff } };
+
+      if (statusFilter) {
+        // Combine base filter with OR of statusFilter or recent completed
+        queryFilter = {
+          $and: [
+            filter,
+            { $or: [ { status: statusFilter }, completedClause ] }
+          ]
+        };
+      } else {
+        // No explicit status filter; include recent completed in addition to base filter
+        queryFilter = {
+          $and: [
+            filter,
+            { $or: [ {}, completedClause ] }
+          ]
+        };
+      }
+    } else if (statusFilter) {
+      queryFilter = { ...filter, status: statusFilter };
+    }
+
     // Execute query with pagination
-    const battles = await Battle.find(filter)
+    const battles = await Battle.find(queryFilter)
       .populate('creator', 'username email')
       .populate('participants.user', 'username email')
       .sort(sort)
@@ -68,7 +100,7 @@ const getBattles = async (req, res) => {
       .limit(limitNum);
 
     // Get total count for pagination info
-    const totalBattles = await Battle.countDocuments(filter);
+    const totalBattles = await Battle.countDocuments(queryFilter);
     const totalPages = Math.ceil(totalBattles / limitNum);
 
     res.json({

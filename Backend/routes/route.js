@@ -22,8 +22,16 @@ const {
   submitSolution,
   runCode,
   debugBattle,
-  leaveBattle
+  leaveBattle,
+  deleteBattle
 } = require("../controller/battleController");
+
+const {
+  runCode: runCodeGeneral,
+  submitSolution: submitSolutionGeneral,
+  getSubmissionStatus,
+  getSupportedLanguages
+} = require("../controller/codeExecution");
 
 const {
   verifyToken,
@@ -67,5 +75,12 @@ router.post("/battles/:id/leave", verifyToken, leaveBattle);
 router.post("/battles/:id/start", verifyToken, startBattle);
 router.post("/battles/:battleId/problems/:problemId/run", verifyToken, runCode);
 router.post("/battles/:battleId/problems/:problemId/submit", verifyToken, submitSolution);
+router.delete("/battles/:id", verifyToken, deleteBattle);
+
+// General code execution endpoints (Piston-backed)
+router.post("/run", runCodeGeneral);
+router.post("/submit", verifyToken, submitSolutionGeneral);
+router.get("/submission-status/:challengeId", verifyToken, getSubmissionStatus);
+router.get("/languages", getSupportedLanguages);
 
 module.exports = router;

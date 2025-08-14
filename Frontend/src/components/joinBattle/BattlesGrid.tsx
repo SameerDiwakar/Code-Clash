@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 interface BattlesGridProps {
   battles: Battle[];
   onJoinBattle: (battleId: string) => void;
+  onDeleteBattle?: (battleId: string) => void;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
   hasMore?: boolean;
@@ -15,6 +16,7 @@ interface BattlesGridProps {
 const BattlesGrid = ({ 
   battles, 
   onJoinBattle, 
+  onDeleteBattle,
   isLoadingMore = false, 
   onLoadMore,
   hasMore = false 
@@ -36,6 +38,7 @@ const BattlesGrid = ({
             key={battle._id} 
             battle={battle} 
             onJoinBattle={onJoinBattle}
+            onDeleteBattle={onDeleteBattle}
           />
         ))}
       </div>

@@ -8,6 +8,13 @@ const problemSchema = new Schema({
     required: true,
     trim: true
   },
+  // Normalized title used for case-insensitive uniqueness
+  normalizedTitle: {
+    type: String,
+    required: true,
+    lowercase: true,
+    trim: true
+  },
   description: {
     type: String,
     required: true
@@ -141,6 +148,21 @@ battleSchema.index({ status: 1 });
 battleSchema.index({ startTime: 1 });
 battleSchema.index({ difficulty: 1 });
 battleSchema.index({ isPublic: 1 });
+battleSchema.index({ endTime: 1 });
+// Unique index on normalizedTitle ensures case-insensitive uniqueness for new/updated docs
+// Use partial index so legacy documents without normalizedTitle don't block index creation
+battleSchema.index(
+  { normalizedTitle: 1 },
+  { unique: true, partialFilterExpression: { normalizedTitle: { $exists: true } } }
+);
+
+// Pre-save middleware to calculate end time
+battleSchema.pre('validate', function(next) {
+  if (typeof this.title === 'string') {
+    this.normalizedTitle = this.title.trim().toLowerCase();
+  }
+  next();
+});
 
 // Pre-save middleware to calculate end time
 battleSchema.pre('save', function(next) {

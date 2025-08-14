@@ -142,8 +142,8 @@ const BattleForm = () => {
 
       const response = await axios.post('/api/battles', battleData, {
         withCredentials: true,
-        // Treat 400 (validation) as a resolved response so it doesn't throw an AxiosError
-        validateStatus: (status) => (status >= 200 && status < 300) || status === 400
+        // Treat 400 (validation) and 409 (duplicate title) as resolved responses so they don't throw
+        validateStatus: (status) => (status >= 200 && status < 300) || status === 400 || status === 409
       });
 
       if (response.status === 201) {
@@ -170,6 +170,14 @@ const BattleForm = () => {
         return;
       }
 
+      // Duplicate title
+      if (response.status === 409) {
+        const message = (response.data && response.data.error) ? String(response.data.error) : 'A battle with this title already exists. Please choose a different title.';
+        setValidationMessages([message]);
+        setShowValidationModal(true);
+        return;
+      }
+
       // Any other unexpected status
       alert(`Error: ${response.data?.error || 'Failed to create battle'}`);
     } catch {
@@ -183,6 +191,32 @@ const BattleForm = () => {
 
   return (
     <main className="container mx-auto px-6 py-12">
+      {isSubmitting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Dark shadowy background */}
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          {/* Loader content */}
+          <div className="relative z-10 flex flex-col items-center gap-6 p-10 rounded-2xl border border-purple-500/40 bg-slate-900/90 shadow-2xl">
+            {/* Gradient spinner */}
+            <div className="relative">
+              <div className="h-20 w-20 rounded-full border-4 border-transparent animate-spin" style={{
+                background: 'conic-gradient(from 0deg, rgb(168,85,247), rgb(236,72,153), rgb(168,85,247))'
+              }} />
+              <div className="absolute inset-2 rounded-full bg-slate-900" />
+              <div className="absolute inset-0 rounded-full border-4 border-slate-800" />
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-semibold text-purple-300">Creating your battle...</div>
+              <div className="text-sm text-slate-400 mt-1">This may take a few seconds while we validate problems</div>
+            </div>
+            {/* Progress shimmer */}
+            <div className="w-64 h-2 rounded-full bg-slate-800 overflow-hidden">
+              <div className="h-full w-1/3 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 animate-[shimmer_1.4s_infinite]" />
+            </div>
+          </div>
+          <style>{`@keyframes shimmer { 0% { transform: translateX(-100%);} 100% { transform: translateX(300%);} }`}</style>
+        </div>
+      )}
       {showValidationModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => setShowValidationModal(false)} />

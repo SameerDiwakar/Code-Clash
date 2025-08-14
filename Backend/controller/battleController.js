@@ -4,6 +4,7 @@ const { getBattles, getBattleById, getUserBattles } = require('./battle/list');
 const { joinBattle, startBattle, leaveBattle } = require('./battle/participate');
 const { submitSolution, runCode } = require('./battle/execute');
 const { debugBattle } = require('./battle/debug');
+const { deleteBattle } = require('./battle/delete');
 
 module.exports = {
   createBattle,
@@ -15,7 +16,8 @@ module.exports = {
   submitSolution,
   runCode,
   debugBattle,
-  leaveBattle
+  leaveBattle,
+  deleteBattle
 };
 
 

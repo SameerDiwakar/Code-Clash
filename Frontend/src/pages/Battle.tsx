@@ -34,13 +34,19 @@ interface SubmissionResult {
   memoryUsed?: string;
 }
 
+interface SupportedLanguage {
+  id: string;
+  version: string;
+  boilerplate: string;
+}
+
 const Battle = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [problems, setProblems] = useState<Problem[]>([]);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
   const [code, setCode] = useState('');
-  const [language, setLanguage] = useState('python');
+  const [language, setLanguage] = useState('python3');
   const [customInput, setCustomInput] = useState('');
   const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,6 +57,7 @@ const Battle = () => {
   const [leaveLoading, setLeaveLoading] = useState<boolean>(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const [leaveMessage, setLeaveMessage] = useState<string | null>(null);
+  const [languages, setLanguages] = useState<SupportedLanguage[]>([]);
 
   // Map backend problem to frontend Problem shape
   const mapBackendProblem = (p: any, index: number): Problem => {
@@ -67,6 +74,13 @@ const Battle = () => {
       outputSample: firstExample?.output || '',
       constraints: Array.isArray(constraintsArr) ? constraintsArr : []
     } as Problem;
+  };
+
+  // Some legacy battle endpoints might expect slightly different ids (e.g., 'python').
+  // Normalize for compatibility when calling battle-specific run/submit.
+  const normalizeBattleLanguage = (lang: string) => {
+    if (lang === 'python3') return 'python';
+    return lang;
   };
 
   useEffect(() => {
@@ -104,8 +118,37 @@ const Battle = () => {
       }
     };
     fetchBattle();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    const loadLanguages = async () => {
+      try {
+        const resp = await axios.get('http://localhost:4000/api/languages', { withCredentials: true });
+        const list: SupportedLanguage[] = resp.data?.languages || [];
+        setLanguages(list);
+        // If editor is empty, set default language boilerplate
+        if (!code.trim()) {
+          const def = list.find(l => l.id === 'python3') || list[0];
+          if (def) {
+            setLanguage(def.id);
+            setCode(def.boilerplate || '');
+          }
+        }
+      } catch (e) {
+        // silently ignore; language dropdown will still work with defaults
+      }
+    };
+    loadLanguages();
+  }, []);
+
+  const handleLanguageChange = (lang: string) => {
+    setLanguage(lang);
+    const entry = languages.find(l => l.id === lang);
+    if (entry) {
+      // Always apply boilerplate for the selected language (no confirmation)
+      setCode(entry.boilerplate || '');
+    }
+  };
 
   const handleLeave = async () => {
     if (!id) return;
@@ -140,7 +183,7 @@ const Battle = () => {
     try {
       const resp = await axios.post(
         `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/run`,
-        { code, language, stdin: customInput },
+        { code, language: normalizeBattleLanguage(language), input: customInput },
         { withCredentials: true }
       );
       const data = resp.data || {};
@@ -168,7 +211,7 @@ const Battle = () => {
     try {
       const resp = await axios.post(
         `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/submit`,
-        { code, language },
+        { code, language: normalizeBattleLanguage(language) },
         { withCredentials: true }
       );
       const submission = resp.data?.submission;
@@ -217,7 +260,7 @@ const Battle = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 gap-6 max-w-7xl mx-auto">
         {/* Problems List */}
         <BattleProblemsList
           problems={problems}
@@ -225,49 +268,52 @@ const Battle = () => {
           onSelect={(p) => setSelectedProblem(p)}
                 />
         {/* Main Coding Area */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6">
           {/* Problem Details */}
           {selectedProblem && (
             <BattleProblemDetails problem={selectedProblem} />
           )}
-          {/* Custom Input */}
-          <BattleCustomInput
-            customInput={customInput}
-            setCustomInput={setCustomInput}
-          />
-          {/* Code Editor */}
-          <BattleCodeEditor
-            code={code}
-            setCode={setCode}
-                language={language}
-            setLanguage={setLanguage}
-              />
-          {/* Run & Submit Buttons */}
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={handleRun}
-              disabled={isRunning || !code.trim()}
-              size="lg"
-              variant="secondary"
-              className="px-6"
-            >
-              {isRunning ? 'Running...' : 'Run Code'}
-            </Button>
-            {/* Submit Button */}
-            <BattleSubmitButton
-              onSubmit={handleSubmit}
-              isSubmitting={isSubmitting}
+          {/* Coding Workspace: Full-width Editor, with Custom Input and Verdict below */}
+          <div className="space-y-4">
+            {/* Code Editor - full width */}
+            <BattleCodeEditor
               code={code}
+              setCode={setCode}
+              language={language}
+              setLanguage={handleLanguageChange}
             />
+            {/* Run & Submit Buttons */}
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleRun}
+                disabled={isRunning || !code.trim()}
+                size="lg"
+                variant="secondary"
+                className="px-6"
+              >
+                {isRunning ? 'Running...' : 'Run Code'}
+              </Button>
+              {/* Submit Button */}
+              <BattleSubmitButton
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+                code={code}
+              />
+            </div>
+            {/* Custom Input below buttons */}
+            <BattleCustomInput
+              customInput={customInput}
+              setCustomInput={setCustomInput}
+            />
+            {/* Verdict / Submission Result below */}
+            <BattleSubmissionResult submissionResult={submissionResult} />
+            {leaveError && (
+              <div className="text-sm text-red-300">{leaveError}</div>
+            )}
+            {leaveMessage && (
+              <div className="text-sm text-green-300">{leaveMessage}</div>
+            )}
           </div>
-          {leaveError && (
-            <div className="mt-2 text-sm text-red-300">{leaveError}</div>
-          )}
-          {leaveMessage && (
-            <div className="mt-2 text-sm text-green-300">{leaveMessage}</div>
-          )}
-          {/* Submission Result */}
-          <BattleSubmissionResult submissionResult={submissionResult} />
         </div>
       </div>
     </div>
