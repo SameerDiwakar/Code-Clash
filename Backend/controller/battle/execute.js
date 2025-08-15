@@ -1,6 +1,7 @@
 const Battle = require('../../models/battle');
 const User = require('../../models/user');
 const { executeCodeWithPiston } = require('./piston');
+const { judgeSubmissionWithPiston } = require('./pistonJudge');
 
 // Submit solution for a problem
 const submitSolution = async (req, res) => {
@@ -19,8 +20,13 @@ const submitSolution = async (req, res) => {
     if (!battle) return res.status(404).json({ error: 'Battle not found' });
 
     // Check if battle is active
-    if (battle.status !== 'active') {
-      return res.status(400).json({ error: 'Battle is not active' });
+    const timeWindowActive = typeof battle.isActive === 'function' ? battle.isActive() : false;
+    if (battle.status !== 'Active' && !timeWindowActive) {
+      return res.status(400).json({ error: `Battle is not active (status=${battle.status}).` });
+    }
+    // Auto-correct status if time window indicates it should be active
+    if (battle.status !== 'Active' && timeWindowActive) {
+      battle.status = 'Active';
     }
 
     // Check if battle has ended
@@ -36,56 +42,48 @@ const submitSolution = async (req, res) => {
     if (!participant) return res.status(400).json({ error: 'You are not a participant in this battle' });
 
     const testCases = problem.testCases;
-    let passed = 0;
-    let totalTime = 0;
-    let peakMem = 0;
-    const details = [];
 
-    // Run code against all test cases
+    // Validate test cases have proper string input/expectedOutput
+    const invalidCases = [];
     for (let i = 0; i < testCases.length; i++) {
-      const testCase = testCases[i];
-      const exec = await executeCodeWithPiston({
-        language,
-        code,
-        stdin: String(testCase.input || '')
-      });
-
-      if (exec.error) {
-        details.push({
-          testCase: i + 1,
-          input: testCase.input,
-          expectedOutput: testCase.expectedOutput,
-          actualOutput: exec.error,
-          passed: false,
-          error: exec.error,
-          time: 0,
-          memory: 0
-        });
-        continue;
+      const tc = testCases[i];
+      const inOk = typeof tc.input === 'string' && tc.input.trim() !== '';
+      const outOk = typeof tc.expectedOutput === 'string' && tc.expectedOutput.trim() !== '';
+      if (!inOk || !outOk) {
+        invalidCases.push({ index: i + 1, input: tc.input, expectedOutput: tc.expectedOutput });
       }
-
-      const actualOutput = (exec.stdout || '').trim();
-      const expectedOutput = String(testCase.expectedOutput || '').trim();
-      const testPassed = actualOutput === expectedOutput;
-
-      if (testPassed) passed++;
-
-      totalTime += exec.time || 0;
-      peakMem = Math.max(peakMem, exec.memory || 0);
-
-      details.push({
-        testCase: i + 1,
-        input: testCase.input,
-        expectedOutput: testCase.expectedOutput,
-        actualOutput: actualOutput,
-        passed: testPassed,
-        time: exec.time || 0,
-        memory: exec.memory || 0,
-        stderr: exec.stderr || ''
+    }
+    if (invalidCases.length > 0) {
+      return res.status(400).json({
+        error: 'Invalid test cases: input/expectedOutput must be non-empty strings',
+        invalidCases
       });
     }
 
+    // Use Piston for judging to avoid external API limits
+    console.log(`Judging (Piston) submission for problem ${problemId} with ${testCases.length} test cases...`);
+    const judgingResult = await judgeSubmissionWithPiston({
+      sourceCode: code,
+      language,
+      testCases
+    });
+
+    const passed = judgingResult.passed;
     const allPassed = passed === testCases.length;
+    const totalTime = judgingResult.totalTime;
+    const peakMem = judgingResult.peakMemory;
+    const details = judgingResult.testCaseResults.map(result => ({
+      testCase: result.caseNumber,
+      input: result.input,
+      expectedOutput: result.expectedOutput,
+      actualOutput: result.actualOutput,
+      passed: result.passed,
+      status: result.status,
+      time: result.time,
+      memory: result.memory,
+      stderr: result.stderr || '',
+      isHidden: result.isHidden
+    }));
 
     // Find existing submission or create new one
     let participantIndex = battle.participants.findIndex(p => p.user.toString() === user._id.toString());
@@ -106,9 +104,21 @@ const submitSolution = async (req, res) => {
       testCasesPassed: passed,
       totalTestCases: testCases.length,
       score: allPassed ? (problem.points || 100) : Math.round(((passed / Math.max(1, testCases.length)) * (problem.points || 100))),
-      executionTime: Math.round(totalTime * 1000) / 1000,
+      executionTime: totalTime,
       memory: peakMem,
-      details
+      verdict: judgingResult.verdict,
+      compilationError: judgingResult.compilationError,
+      firstFailedCase: judgingResult.firstFailedCase,
+      details,
+      result: {
+        status: judgingResult.verdict,
+        details: details,
+        executionTime: totalTime,
+        memory: peakMem,
+        totalCases: testCases.length,
+        passedCases: passed,
+        failedCases: testCases.length - passed
+      }
     };
 
     if (existingSubmissionIndex >= 0) {

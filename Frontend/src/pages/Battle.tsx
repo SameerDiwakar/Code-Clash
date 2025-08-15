@@ -13,7 +13,7 @@ import BattleHeader from '@/components/battle/BattleHeader';
 import BattleProblemsList from '@/components/battle/BattleProblemsList';
 import BattleProblemDetails from '@/components/battle/BattleProblemDetails';
 import BattleCodeEditor from '@/components/battle/BattleCodeEditor';
-import BattleCustomInput from '@/components/battle/BattleCustomInput';
+// import BattleCustomInput from '@/components/battle/BattleCustomInput';
 import BattleSubmitButton from '@/components/battle/BattleSubmitButton';
 import BattleSubmissionResult from '@/components/battle/BattleSubmissionResult';
 
@@ -32,6 +32,27 @@ interface SubmissionResult {
   output: string;
   executionTime?: string;
   memoryUsed?: string;
+  // Backend-detailed result for per-test rendering
+  result?: {
+    status: string;
+    details: Array<{
+      testCase: number;
+      input: string;
+      expectedOutput: string;
+      actualOutput: string;
+      passed: boolean;
+      status: string;
+      time: number;
+      memory: number;
+      stderr?: string;
+      isHidden?: boolean;
+    }>;
+    executionTime: number;
+    memory: number;
+    totalCases: number;
+    passedCases: number;
+    failedCases: number;
+  };
 }
 
 interface SupportedLanguage {
@@ -39,6 +60,37 @@ interface SupportedLanguage {
   version: string;
   boilerplate: string;
 }
+
+// Return a very simple, minimal boilerplate for each language id
+const getSimpleBoilerplate = (id: string): string => {
+  const lang = id.toLowerCase();
+  if (lang === 'python' || lang === 'python3') {
+    return `# Write your code here\n\n\nif __name__ == "__main__":\n    pass\n`;
+  }
+  if (lang === 'cpp' || lang === 'c++') {
+    return `#include <bits/stdc++.h>\nusing namespace std;\nint main(){ ;\n    // Write your code here\n    return 0;\n}\n`;
+  }
+  if (lang === 'java') {
+    return `import java.io.*; import java.util.*;\npublic class Main {\n    public static void main(String[] args) throws Exception {\n        // Write your code here\n    }\n}\n`;
+  }
+  if (lang === 'javascript' || lang === 'nodejs' || lang === 'js') {
+    return `'use strict';\n// Write your code here\nfunction main() {\n}\nmain();\n`;
+  }
+  if (lang === 'typescript' || lang === 'ts') {
+    return `function main(): void {\n  // Write your code here\n}\nmain();\n`;
+  }
+  if (lang === 'go' || lang === 'golang') {
+    return `package main\nimport "fmt"\nfunc main() {\n    // Write your code here\n    _ = fmt.Println\n}\n`;
+  }
+  if (lang === 'c') {
+    return `#include <stdio.h>\nint main() {\n    // Write your code here\n    return 0;\n}\n`;
+  }
+  if (lang === 'rust') {
+    return `fn main() {\n    // Write your code here\n}\n`;
+  }
+  // Default empty
+  return '';
+};
 
 const Battle = () => {
   const { id } = useParams<{ id: string }>();
@@ -125,29 +177,34 @@ const Battle = () => {
       try {
         const resp = await axios.get('http://localhost:4000/api/languages', { withCredentials: true });
         const list: SupportedLanguage[] = resp.data?.languages || [];
-        setLanguages(list);
-        // If editor is empty, set default language boilerplate
-        if (!code.trim()) {
-          const def = list.find(l => l.id === 'python3') || list[0];
-          if (def) {
-            setLanguage(def.id);
-            setCode(def.boilerplate || '');
-          }
+        // Replace incoming boilerplates with simplified versions
+        const simplified = list.map(l => ({
+          ...l,
+          boilerplate: getSimpleBoilerplate(l.id)
+        }));
+        setLanguages(simplified);
+        // Always set default language boilerplate on initial load
+        const def = simplified.find(l => l.id === 'python3') || simplified[0];
+        if (def) {
+          setLanguage(def.id);
+          setCode(def.boilerplate || '');
         }
       } catch (e) {
-        // silently ignore; language dropdown will still work with defaults
+        console.warn('Failed to load languages:', e);
+        // Set fallback boilerplate
+        setLanguage('python3');
+        setCode(getSimpleBoilerplate('python3'));
       }
     };
     loadLanguages();
-  }, []);
+  }, [id]); // Add id dependency to reload when battle changes
 
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
     const entry = languages.find(l => l.id === lang);
-    if (entry) {
-      // Always apply boilerplate for the selected language (no confirmation)
-      setCode(entry.boilerplate || '');
-    }
+    // Always apply simplified boilerplate for the selected language (no confirmation)
+    const bp = getSimpleBoilerplate(entry?.id || lang);
+    setCode(bp);
   };
 
   const handleLeave = async () => {
@@ -183,12 +240,12 @@ const Battle = () => {
     try {
       const resp = await axios.post(
         `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/run`,
-        { code, language: normalizeBattleLanguage(language), input: customInput },
+        { code, language: normalizeBattleLanguage(language), stdin: customInput },
         { withCredentials: true }
       );
       const data = resp.data || {};
       setSubmissionResult({
-        verdict: data.stderr ? 'Runtime Error' : 'Ran',
+        verdict: data.stderr ? 'Runtime Error' : 'Executed Successfully',
         output: (data.output || data.stdout || data.stderr || '').toString(),
         executionTime: data.time ? `${data.time}s` : undefined,
         memoryUsed: data.memory ? `${data.memory} KB` : undefined
@@ -196,8 +253,8 @@ const Battle = () => {
     } catch (e: any) {
       console.error('Run error:', e);
       setSubmissionResult({
-        verdict: 'Error',
-        output: e.response?.data?.error || 'Failed to run code.'
+        verdict: 'Execution Failed',
+        output: e.response?.data?.error || 'Failed to execute code. Please check your syntax and try again.'
       });
     } finally {
       setIsRunning(false);
@@ -219,10 +276,17 @@ const Battle = () => {
       setSubmissionResult({
         verdict: result.status || 'Unknown',
         output: Array.isArray(result.details)
-          ? result.details.map((d: any, i: number) => `#${i + 1} ${d.passed ? 'PASS' : 'FAIL'}\nInput:\n${d.input}\nExpected:\n${d.expected}\nGot:\n${d.stdout}\n${d.stderr ? `Stderr:\n${d.stderr}` : ''}`).join('\n\n')
+          ? result.details
+              .map((d: any, i: number) => {
+                const exp = d.expectedOutput ?? d.expected ?? '';
+                const got = d.actualOutput ?? d.stdout ?? '';
+                return `#${i + 1} ${d.passed ? 'PASS' : 'FAIL'}\nInput:\n${d.input}\nExpected:\n${exp}\nGot:\n${got}${d.stderr ? `\nStderr:\n${d.stderr}` : ''}`;
+              })
+              .join('\n\n')
           : 'Submitted.',
         executionTime: typeof result.executionTime !== 'undefined' ? `${result.executionTime}s` : undefined,
-        memoryUsed: typeof result.memory !== 'undefined' ? `${result.memory} KB` : undefined
+        memoryUsed: typeof result.memory !== 'undefined' ? `${result.memory} KB` : undefined,
+        result
       });
     } catch (e: any) {
       console.error('Submission error:', e);
@@ -273,46 +337,55 @@ const Battle = () => {
           {selectedProblem && (
             <BattleProblemDetails problem={selectedProblem} />
           )}
-          {/* Coding Workspace: Full-width Editor, with Custom Input and Verdict below */}
-          <div className="space-y-4">
-            {/* Code Editor - full width */}
-            <BattleCodeEditor
-              code={code}
-              setCode={setCode}
-              language={language}
-              setLanguage={handleLanguageChange}
-            />
-            {/* Run & Submit Buttons */}
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleRun}
-                disabled={isRunning || !code.trim()}
-                size="lg"
-                variant="secondary"
-                className="px-6"
-              >
-                {isRunning ? 'Running...' : 'Run Code'}
-              </Button>
-              {/* Submit Button */}
-              <BattleSubmitButton
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-                code={code}
-              />
+          {/* Coding Workspace: Left = Verdict (30%), Right = Editor (70%) */}
+          <div className="grid grid-cols-1 md:grid-cols-10 gap-4">
+            {/* Left: Output / Verdict */}
+            <div className="order-2 md:order-1 md:col-span-3 space-y-4">
+              {/* Verdict / Submission Result */}
+              <BattleSubmissionResult submissionResult={submissionResult} />
+              {leaveError && (
+                <div className="text-sm text-red-300">{leaveError}</div>
+              )}
+              {leaveMessage && (
+                <div className="text-sm text-green-300">{leaveMessage}</div>
+              )}
             </div>
-            {/* Custom Input below buttons */}
-            <BattleCustomInput
-              customInput={customInput}
-              setCustomInput={setCustomInput}
-            />
-            {/* Verdict / Submission Result below */}
-            <BattleSubmissionResult submissionResult={submissionResult} />
-            {leaveError && (
-              <div className="text-sm text-red-300">{leaveError}</div>
-            )}
-            {leaveMessage && (
-              <div className="text-sm text-green-300">{leaveMessage}</div>
-            )}
+
+            {/* Right: Code Editor */}
+            <div className="order-1 md:order-2 md:col-span-7 space-y-4">
+              {/* Code Editor */}
+              <BattleCodeEditor
+                code={code}
+                setCode={setCode}
+                language={language}
+                setLanguage={handleLanguageChange}
+              />
+              {/* Run & Submit Buttons */}
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleRun}
+                  disabled={isRunning || !code.trim()}
+                  size="lg"
+                  variant="secondary"
+                  className="px-6"
+                >
+                  {isRunning ? 'Running...' : 'Run Code'}
+                </Button>
+                {/* Submit Button */}
+                <BattleSubmitButton
+                  onSubmit={handleSubmit}
+                  isSubmitting={isSubmitting}
+                  code={code}
+                />
+              </div>
+              {/* Custom Input below buttons - temporarily disabled */}
+              {/*
+              <BattleCustomInput
+                customInput={customInput}
+                setCustomInput={setCustomInput}
+              />
+              */}
+            </div>
           </div>
         </div>
       </div>

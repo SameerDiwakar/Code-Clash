@@ -96,7 +96,7 @@ const startBattle = async (req, res) => {
     }
 
     // Update battle status and start time
-    battle.status = 'active';
+    battle.status = 'Active';
     battle.startTime = new Date();
     battle.endTime = new Date(Date.now() + battle.duration * 60 * 1000);
 

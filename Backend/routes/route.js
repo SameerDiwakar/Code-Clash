@@ -33,6 +33,8 @@ const {
   getSupportedLanguages
 } = require("../controller/codeExecution");
 
+const { generateHiddenTests } = require("../controller/testGeneration");
+
 const {
   verifyToken,
   upload,
@@ -82,5 +84,8 @@ router.post("/run", runCodeGeneral);
 router.post("/submit", verifyToken, submitSolutionGeneral);
 router.get("/submission-status/:challengeId", verifyToken, getSubmissionStatus);
 router.get("/languages", getSupportedLanguages);
+
+// Hidden test generation (LLM-backed)
+router.post("/tests/generate", verifyToken, generateHiddenTests);
 
 module.exports = router;
