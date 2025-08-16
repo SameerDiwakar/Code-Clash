@@ -46,6 +46,20 @@ mongoose.connect(process.env.MONGO_URL)
       } else {
         await Battle.syncIndexes();
         console.log('Battle indexes synchronized');
+
+        // Backfill expiresAt for existing documents where missing
+        try {
+          const oneDayMs = 24 * 60 * 60 * 1000;
+          const res = await Battle.updateMany(
+            { endTime: { $exists: true }, expiresAt: { $exists: false } },
+            [ { $set: { expiresAt: { $add: ['$endTime', oneDayMs] } } } ]
+          );
+          if (res?.modifiedCount) {
+            console.log(`Backfilled expiresAt for ${res.modifiedCount} battle(s).`);
+          }
+        } catch (bfExpErr) {
+          console.warn('Backfill expiresAt failed (non-fatal):', bfExpErr?.message || bfExpErr);
+        }
       }
     } catch (e) {
       console.error('Failed to sync battle indexes:', e?.message || e);

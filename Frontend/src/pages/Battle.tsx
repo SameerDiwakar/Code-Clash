@@ -58,39 +58,8 @@ interface SubmissionResult {
 interface SupportedLanguage {
   id: string;
   version: string;
-  boilerplate: string;
+  boilerplate: string; // backend now returns LeetCode-style here
 }
-
-// Return a very simple, minimal boilerplate for each language id
-const getSimpleBoilerplate = (id: string): string => {
-  const lang = id.toLowerCase();
-  if (lang === 'python' || lang === 'python3') {
-    return `# Write your code here\n\n\nif __name__ == "__main__":\n    pass\n`;
-  }
-  if (lang === 'cpp' || lang === 'c++') {
-    return `#include <bits/stdc++.h>\nusing namespace std;\nint main(){ ;\n    // Write your code here\n    return 0;\n}\n`;
-  }
-  if (lang === 'java') {
-    return `import java.io.*; import java.util.*;\npublic class Main {\n    public static void main(String[] args) throws Exception {\n        // Write your code here\n    }\n}\n`;
-  }
-  if (lang === 'javascript' || lang === 'nodejs' || lang === 'js') {
-    return `'use strict';\n// Write your code here\nfunction main() {\n}\nmain();\n`;
-  }
-  if (lang === 'typescript' || lang === 'ts') {
-    return `function main(): void {\n  // Write your code here\n}\nmain();\n`;
-  }
-  if (lang === 'go' || lang === 'golang') {
-    return `package main\nimport "fmt"\nfunc main() {\n    // Write your code here\n    _ = fmt.Println\n}\n`;
-  }
-  if (lang === 'c') {
-    return `#include <stdio.h>\nint main() {\n    // Write your code here\n    return 0;\n}\n`;
-  }
-  if (lang === 'rust') {
-    return `fn main() {\n    // Write your code here\n}\n`;
-  }
-  // Default empty
-  return '';
-};
 
 const Battle = () => {
   const { id } = useParams<{ id: string }>();
@@ -177,23 +146,18 @@ const Battle = () => {
       try {
         const resp = await axios.get('http://localhost:4000/api/languages', { withCredentials: true });
         const list: SupportedLanguage[] = resp.data?.languages || [];
-        // Replace incoming boilerplates with simplified versions
-        const simplified = list.map(l => ({
-          ...l,
-          boilerplate: getSimpleBoilerplate(l.id)
-        }));
-        setLanguages(simplified);
-        // Always set default language boilerplate on initial load
-        const def = simplified.find(l => l.id === 'python3') || simplified[0];
+        setLanguages(list);
+        // Set default language boilerplate from backend (LeetCode-style)
+        const def = list.find(l => l.id === 'python3') || list[0];
         if (def) {
           setLanguage(def.id);
           setCode(def.boilerplate || '');
         }
       } catch (e) {
         console.warn('Failed to load languages:', e);
-        // Set fallback boilerplate
+        // Set minimal fallback
         setLanguage('python3');
-        setCode(getSimpleBoilerplate('python3'));
+        setCode('class Solution:\n    def solve(self):\n        pass\n');
       }
     };
     loadLanguages();
@@ -202,8 +166,8 @@ const Battle = () => {
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
     const entry = languages.find(l => l.id === lang);
-    // Always apply simplified boilerplate for the selected language (no confirmation)
-    const bp = getSimpleBoilerplate(entry?.id || lang);
+    // Use backend-provided LeetCode-style boilerplate
+    const bp = entry?.boilerplate || '';
     setCode(bp);
   };
 
@@ -240,7 +204,7 @@ const Battle = () => {
     try {
       const resp = await axios.post(
         `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/run`,
-        { code, language: normalizeBattleLanguage(language), stdin: customInput },
+        { code, language: normalizeBattleLanguage(language), isLeetCodeStyle: true, functionName: 'solve', useProblemTests: true },
         { withCredentials: true }
       );
       const data = resp.data || {};
@@ -268,7 +232,7 @@ const Battle = () => {
     try {
       const resp = await axios.post(
         `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/submit`,
-        { code, language: normalizeBattleLanguage(language) },
+        { code, language: normalizeBattleLanguage(language), isLeetCodeStyle: true, functionName: 'solve' },
         { withCredentials: true }
       );
       const submission = resp.data?.submission;

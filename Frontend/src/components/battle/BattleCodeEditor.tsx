@@ -23,17 +23,8 @@ const BattleCodeEditor = ({ code, setCode, language, setLanguage }: BattleCodeEd
             <SelectContent>
               <SelectItem value="python3">Python 3</SelectItem>
               <SelectItem value="javascript">JavaScript (Node)</SelectItem>
-              <SelectItem value="typescript">TypeScript</SelectItem>
-              <SelectItem value="cpp">C++</SelectItem>
-              <SelectItem value="c">C</SelectItem>
               <SelectItem value="java">Java</SelectItem>
-              <SelectItem value="go">Go</SelectItem>
-              <SelectItem value="rust">Rust</SelectItem>
-              <SelectItem value="csharp">C#</SelectItem>
-              <SelectItem value="php">PHP</SelectItem>
-              <SelectItem value="ruby">Ruby</SelectItem>
-              <SelectItem value="kotlin">Kotlin</SelectItem>
-              <SelectItem value="swift">Swift</SelectItem>
+              <SelectItem value="cpp">C++</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -55,28 +46,10 @@ function mapToMonacoLanguage(lang: string): string {
       return 'python';
     case 'javascript':
       return 'javascript';
-    case 'typescript':
-      return 'typescript';
-    case 'cpp':
-      return 'cpp';
-    case 'c':
-      return 'c';
     case 'java':
       return 'java';
-    case 'go':
-      return 'go';
-    case 'rust':
-      return 'rust';
-    case 'csharp':
-      return 'csharp';
-    case 'php':
-      return 'php';
-    case 'ruby':
-      return 'ruby';
-    case 'kotlin':
-      return 'kotlin';
-    case 'swift':
-      return 'swift';
+    case 'cpp':
+      return 'cpp';
     default:
       return 'plaintext';
   }
