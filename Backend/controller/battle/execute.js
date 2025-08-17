@@ -2,6 +2,20 @@ const Battle = require('../../models/battle');
 const User = require('../../models/user');
 const { executeCodeWithPiston } = require('./piston');
 
+// Allowed languages for battle feature
+// Accept common aliases from frontend/backend and map internally via piston helper
+const ALLOWED_BATTLE_LANGS = new Set([
+  'python', 'python3',
+  'javascript',
+  'java',
+  'cpp', 'c++'
+]);
+
+function isAllowedBattleLanguage(lang) {
+  if (!lang) return false;
+  return ALLOWED_BATTLE_LANGS.has(String(lang).toLowerCase());
+}
+
 // Submit solution for a problem
 const submitSolution = async (req, res) => {
   try {
@@ -18,14 +32,17 @@ const submitSolution = async (req, res) => {
     const battle = await Battle.findById(battleId);
     if (!battle) return res.status(404).json({ error: 'Battle not found' });
 
-    // Check if battle is active
-    if (battle.status !== 'active') {
-      return res.status(400).json({ error: 'Battle is not active' });
-    }
-
-    // Check if battle has ended
-    if (new Date() > battle.endTime) {
-      return res.status(400).json({ error: 'Battle has ended' });
+    // Check if battle is currently active (time-window based)
+    if (typeof battle.isActive === 'function') {
+      if (!battle.isActive()) {
+        return res.status(400).json({ error: 'Battle is not active at this time' });
+      }
+    } else {
+      // Fallback check if method missing
+      const now = new Date();
+      if (!(battle.startTime && battle.endTime && now >= battle.startTime && now <= battle.endTime)) {
+        return res.status(400).json({ error: 'Battle is not active at this time' });
+      }
     }
 
     const problem = battle.problems.id(problemId);
@@ -44,6 +61,10 @@ const submitSolution = async (req, res) => {
     // Run code against all test cases
     for (let i = 0; i < testCases.length; i++) {
       const testCase = testCases[i];
+      // Validate language for battle before execution
+      if (!isAllowedBattleLanguage(language)) {
+        return res.status(400).json({ error: `Unsupported language for battle: ${language}. Allowed: Python, JavaScript, Java, C++` });
+      }
       const exec = await executeCodeWithPiston({
         language,
         code,
@@ -138,13 +159,13 @@ const submitSolution = async (req, res) => {
   }
 };
 
-// Run code with custom input (without judging)
+// Run code (preview) without custom input; uses problem sample test input
 const runCode = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     const { battleId, problemId } = req.params;
-    const { code, language, stdin } = req.body;
+    const { code, language } = req.body;
 
     const battle = await Battle.findById(battleId);
     if (!battle) return res.status(404).json({ error: 'Battle not found' });
@@ -155,7 +176,26 @@ const runCode = async (req, res) => {
     const participant = battle.participants.find(p => p.user.toString() === user._id.toString());
     if (!participant) return res.status(400).json({ error: 'You are not a participant in this battle' });
 
-    const exec = await executeCodeWithPiston({ language, code, stdin });
+    // Ensure battle is active before allowing run
+    if (typeof battle.isActive === 'function') {
+      if (!battle.isActive()) {
+        return res.status(400).json({ error: 'Battle is not active at this time' });
+      }
+    } else {
+      const now = new Date();
+      if (!(battle.startTime && battle.endTime && now >= battle.startTime && now <= battle.endTime)) {
+        return res.status(400).json({ error: 'Battle is not active at this time' });
+      }
+    }
+
+    // Validate language for battle
+    if (!isAllowedBattleLanguage(language)) {
+      return res.status(400).json({ error: `Unsupported language for battle: ${language}. Allowed: Python, JavaScript, Java, C++` });
+    }
+
+    // Use the first test case input (or empty) as preview input; no custom stdin is allowed
+    const sampleInput = String((problem.testCases && problem.testCases[0] && problem.testCases[0].input) || '');
+    const exec = await executeCodeWithPiston({ language, code, stdin: sampleInput });
     if (exec.error) return res.status(400).json({ error: exec.error });
     res.json({
       stdout: exec.stdout,

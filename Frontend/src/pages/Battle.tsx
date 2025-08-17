@@ -13,7 +13,6 @@ import BattleHeader from '@/components/battle/BattleHeader';
 import BattleProblemsList from '@/components/battle/BattleProblemsList';
 import BattleProblemDetails from '@/components/battle/BattleProblemDetails';
 import BattleCodeEditor from '@/components/battle/BattleCodeEditor';
-import BattleCustomInput from '@/components/battle/BattleCustomInput';
 import BattleSubmitButton from '@/components/battle/BattleSubmitButton';
 import BattleSubmissionResult from '@/components/battle/BattleSubmissionResult';
 
@@ -47,7 +46,6 @@ const Battle = () => {
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('python3');
-  const [customInput, setCustomInput] = useState('');
   const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
@@ -183,7 +181,7 @@ const Battle = () => {
     try {
       const resp = await axios.post(
         `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/run`,
-        { code, language: normalizeBattleLanguage(language), input: customInput },
+        { code, language: normalizeBattleLanguage(language) },
         { withCredentials: true }
       );
       const data = resp.data || {};
@@ -273,46 +271,44 @@ const Battle = () => {
           {selectedProblem && (
             <BattleProblemDetails problem={selectedProblem} />
           )}
-          {/* Coding Workspace: Full-width Editor, with Custom Input and Verdict below */}
-          <div className="space-y-4">
-            {/* Code Editor - full width */}
-            <BattleCodeEditor
-              code={code}
-              setCode={setCode}
-              language={language}
-              setLanguage={handleLanguageChange}
-            />
-            {/* Run & Submit Buttons */}
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleRun}
-                disabled={isRunning || !code.trim()}
-                size="lg"
-                variant="secondary"
-                className="px-6"
-              >
-                {isRunning ? 'Running...' : 'Run Code'}
-              </Button>
-              {/* Submit Button */}
-              <BattleSubmitButton
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
+          {/* Coding Workspace: 30% output on left, 70% editor on right */}
+          <div className="grid grid-cols-1 md:[grid-template-columns:30%_70%] gap-4">
+            {/* Left: Verdict / Output */}
+            <div className="order-2 md:order-1">
+              <BattleSubmissionResult submissionResult={submissionResult} />
+              {leaveError && (
+                <div className="text-sm text-red-300 mt-2">{leaveError}</div>
+              )}
+              {leaveMessage && (
+                <div className="text-sm text-green-300 mt-2">{leaveMessage}</div>
+              )}
+            </div>
+
+            {/* Right: Buttons + Code Editor */}
+            <div className="space-y-4 order-1 md:order-2">
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={handleRun}
+                  disabled={isRunning || !code.trim()}
+                  size="lg"
+                  variant="secondary"
+                  className="px-6"
+                >
+                  {isRunning ? 'Running...' : 'Run Code'}
+                </Button>
+                <BattleSubmitButton
+                  onSubmit={handleSubmit}
+                  isSubmitting={isSubmitting}
+                  code={code}
+                />
+              </div>
+              <BattleCodeEditor
                 code={code}
+                setCode={setCode}
+                language={language}
+                setLanguage={handleLanguageChange}
               />
             </div>
-            {/* Custom Input below buttons */}
-            <BattleCustomInput
-              customInput={customInput}
-              setCustomInput={setCustomInput}
-            />
-            {/* Verdict / Submission Result below */}
-            <BattleSubmissionResult submissionResult={submissionResult} />
-            {leaveError && (
-              <div className="text-sm text-red-300">{leaveError}</div>
-            )}
-            {leaveMessage && (
-              <div className="text-sm text-green-300">{leaveMessage}</div>
-            )}
           </div>
         </div>
       </div>

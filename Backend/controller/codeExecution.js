@@ -6,28 +6,18 @@ const User = require('../models/user');
 // Piston API configuration
 const PISTON_API_URL = 'http://localhost:2000/api/v2/execute';
 
-// Language version mapping for Piston API (adjust versions to your Piston instance)
+// Language version mapping for Piston API (restricted to four languages)
 const LANGUAGE_VERSIONS = {
   python3: '3.10.0',
   javascript: '18.15.0',
-  typescript: '5.4.0',
   cpp: '10.2.0',
-  c: '10.2.0',
-  java: '15.0.2',
-  go: '1.20.0',
-  rust: '1.69.0',
-  csharp: '6.12.0',
-  php: '8.2.0',
-  ruby: '3.2.0',
-  kotlin: '1.8.0',
-  swift: '5.5.0'
+  java: '15.0.2'
 };
 
-// Boilerplate code templates for each language
+// Boilerplate code templates (restricted)
 const BOILERPLATE = {
   python3: `# Python 3
 def solve():
-    # Read input
     data = input().strip()
     # TODO: implement
     print(data)
@@ -36,7 +26,6 @@ if __name__ == "__main__":
     solve()
 `,
   javascript: `// Node.js (JavaScript)
-// Read all stdin then process
 let input = '';
 process.stdin.on('data', chunk => input += chunk);
 process.stdin.on('end', () => {
@@ -44,12 +33,6 @@ process.stdin.on('end', () => {
   // TODO: implement
   console.log(input);
 });
-`,
-  typescript: `// TypeScript (ts-node)
-import * as fs from 'fs';
-const input = fs.readFileSync(0, 'utf8').trim();
-// TODO: implement
-console.log(input);
 `,
   cpp: `// C++17
 #include <bits/stdc++.h>
@@ -63,16 +46,6 @@ int main(){
     return 0;
 }
 `,
-  c: `// C (GCC)
-#include <stdio.h>
-int main(){
-    char s[10005];
-    if(!fgets(s, sizeof(s), stdin)) return 0;
-    // TODO: implement
-    printf("%s", s);
-    return 0;
-}
-`,
   java: `// Java
 import java.io.*;
 public class Main {
@@ -82,65 +55,6 @@ public class Main {
     // TODO: implement
     System.out.println(s);
   }
-}
-`,
-  go: `// Go
-package main
-import (
-  "bufio"
-  "fmt"
-  "os"
-)
-func main(){
-  in := bufio.NewReader(os.Stdin)
-  s, _ := in.ReadString('\n')
-  // TODO: implement
-  fmt.Print(s)
-}
-`,
-  rust: `// Rust
-use std::io::{self, Read};
-fn main(){
-  let mut input = String::new();
-  io::stdin().read_to_string(&mut input).unwrap();
-  // TODO: implement
-  print!("{}", input);
-}
-`,
-  csharp: `// C#
-using System;
-class Program { static void Main(){
-  string s = Console.ReadLine();
-  // TODO: implement
-  Console.WriteLine(s);
-}}
-`,
-  php: `<?php
-// PHP
-$input = trim(stream_get_contents(STDIN));
-// TODO: implement
-echo $input, "\n";
-`,
-  ruby: `# Ruby
-input = STDIN.read.strip
-# TODO: implement
-puts input
-`,
-  kotlin: `// Kotlin
-import java.io.BufferedReader
-import java.io.InputStreamReader
-fun main(){
-  val br = BufferedReader(InputStreamReader(System.\`in\`))
-  val s = br.readLine()
-  // TODO: implement
-  println(s)
-}
-`,
-  swift: `// Swift
-import Foundation
-if let line = readLine(){
-  // TODO: implement
-  print(line)
 }
 `
 };
@@ -159,7 +73,7 @@ const EXECUTION_LIMITS = {
  */
 const runCode = async (req, res) => {
   try {
-    const { code, language, customInput = '' } = req.body;
+    const { code, language } = req.body;
 
     // Validation
     if (!code || !language) {
@@ -182,7 +96,7 @@ const runCode = async (req, res) => {
         name: getFileName(language),
         content: code
       }],
-      stdin: customInput,
+      stdin: '',
       compile_timeout: EXECUTION_LIMITS.timeout,
       run_timeout: EXECUTION_LIMITS.timeout,
       compile_memory_limit: EXECUTION_LIMITS.memory,
@@ -422,17 +336,8 @@ function getFileName(language) {
   const extensions = {
     python3: 'main.py',
     javascript: 'main.js',
-    typescript: 'main.ts',
     cpp: 'main.cpp',
-    c: 'main.c',
-    java: 'Main.java',
-    go: 'main.go',
-    rust: 'main.rs',
-    csharp: 'Main.cs',
-    php: 'main.php',
-    ruby: 'main.rb',
-    kotlin: 'Main.kt',
-    swift: 'main.swift'
+    java: 'Main.java'
   };
   return extensions[language] || 'main.txt';
 }
