@@ -10,6 +10,7 @@ const {
   forgotPassword,
   validateResetToken,
   resetPassword,
+  googleLogin,
 } = require("../controller/authController");
 
 const {
@@ -47,6 +48,7 @@ const {
 router.get("/test", testRoute);
 router.post("/register", register);
 router.post("/login", login);
+router.post("/google", googleLogin);
 router.get("/profile", profile);
 router.post("/logout", logout);
 router.put("/profile", updateProfile);

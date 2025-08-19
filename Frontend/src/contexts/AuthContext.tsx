@@ -12,6 +12,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, username: string, password: string) => Promise<boolean>;
   logout: (clearProfileCallback?: () => void) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<boolean>;
   isLoading: boolean;
 }
 
@@ -54,6 +55,32 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     } catch (error) {
       console.error('Auth check error:', error);
       setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async (idToken: string): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      const { data } = await axios.post(
+        'http://localhost:4000/api/google',
+        { idToken },
+        { withCredentials: true }
+      );
+      setUser({
+        id: data._id,
+        email: data.email,
+        username: data.username,
+      });
+      return true;
+    } catch (error: any) {
+      if (error.response) {
+        console.error('Google login failed:', error.response.data.message || error.response.statusText);
+      } else {
+        console.error('Google login error:', error.message);
+      }
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -130,7 +157,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loginWithGoogle, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

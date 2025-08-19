@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { UserPlus, ArrowLeft } from 'lucide-react';
 import RegisterForm from '@/components/auth/RegisterForm';
+import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -42,6 +43,12 @@ const Register = () => {
           </CardHeader>
           <CardContent>
             <RegisterForm onSuccess={() => navigate('/dashboard')} />
+            <div className="my-6 flex items-center gap-3">
+              <div className="h-px flex-1 bg-slate-700" />
+              <span className="text-slate-400 text-sm">or</span>
+              <div className="h-px flex-1 bg-slate-700" />
+            </div>
+            <GoogleAuthButton onSuccessNavigate={() => navigate('/dashboard')} className="w-full flex justify-center" />
             <div className="mt-6 text-center">
               <p className="text-slate-400">
                 Already a warrior?{' '}

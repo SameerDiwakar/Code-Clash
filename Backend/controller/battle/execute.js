@@ -118,6 +118,25 @@ const submitSolution = async (req, res) => {
       sub => sub.problemId.toString() === problemId
     );
 
+    // Map details to the structure expected by the frontend UI
+    const resultDetails = details.map(d => ({
+      input: d.input,
+      expected: String(d.expectedOutput ?? ''),
+      stdout: String(d.actualOutput ?? ''),
+      stderr: d.stderr || (d.error || ''),
+      passed: !!d.passed,
+      time: d.time,
+      memory: d.memory
+    }));
+
+    // Aggregate result for frontend consumption
+    const result = {
+      status: allPassed ? 'Accepted' : 'Wrong Answer',
+      details: resultDetails,
+      executionTime: Math.round(totalTime * 1000) / 1000,
+      memory: peakMem
+    };
+
     const submission = {
       problemId: problem._id,
       code,
@@ -129,7 +148,8 @@ const submitSolution = async (req, res) => {
       score: allPassed ? (problem.points || 100) : Math.round(((passed / Math.max(1, testCases.length)) * (problem.points || 100))),
       executionTime: Math.round(totalTime * 1000) / 1000,
       memory: peakMem,
-      details
+      details,
+      result
     };
 
     if (existingSubmissionIndex >= 0) {

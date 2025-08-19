@@ -19,6 +19,7 @@ import Leaderboard from "./pages/Leaderboard";
 import { SpectateBattle } from "./pages/SpectateBattle";
 import NotFound from "./pages/NotFound";
 import axios from "axios";
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 const queryClient = new QueryClient();
 
@@ -30,63 +31,65 @@ axios.defaults.baseURL =
     
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <ProfileProvider>
-        <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/battle" element={
-              <ProtectedRoute>
-                <Battle />
-              </ProtectedRoute>
-            } />
-            <Route path="/battle/:id" element={
-              <ProtectedRoute>
-                <Battle />
-              </ProtectedRoute>
-            } />
-            <Route path="/create-battle" element={
-              <ProtectedRoute>
-                <CreateBattle />
-              </ProtectedRoute>
-            } />
-            <Route path="/join-battle" element={
-              <ProtectedRoute>
-                <JoinBattle />
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            } />
-            <Route path="/leaderboard" element={
-              <ProtectedRoute>
-                <Leaderboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/spectate/:battleId" element={
-              <ProtectedRoute>
-                <SpectateBattle />
-              </ProtectedRoute>
-            } />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-        </TooltipProvider>
-      </ProfileProvider>
-    </AuthProvider>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID as string}>
+      <AuthProvider>
+        <ProfileProvider>
+          <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/battle" element={
+                <ProtectedRoute>
+                  <Battle />
+                </ProtectedRoute>
+              } />
+              <Route path="/battle/:id" element={
+                <ProtectedRoute>
+                  <Battle />
+                </ProtectedRoute>
+              } />
+              <Route path="/create-battle" element={
+                <ProtectedRoute>
+                  <CreateBattle />
+                </ProtectedRoute>
+              } />
+              <Route path="/join-battle" element={
+                <ProtectedRoute>
+                  <JoinBattle />
+                </ProtectedRoute>
+              } />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } />
+              <Route path="/leaderboard" element={
+                <ProtectedRoute>
+                  <Leaderboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/spectate/:battleId" element={
+                <ProtectedRoute>
+                  <SpectateBattle />
+                </ProtectedRoute>
+              } />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+          </TooltipProvider>
+        </ProfileProvider>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   </QueryClientProvider>
 );
 
