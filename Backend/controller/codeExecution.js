@@ -209,7 +209,7 @@ const verifySolution = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error during verification' });
   }
 }
-};
+
 
 // Boilerplate code templates (restricted)
 const BOILERPLATE = {
