@@ -31,8 +31,11 @@ const {
   runCode: runCodeGeneral,
   submitSolution: submitSolutionGeneral,
   getSubmissionStatus,
-  getSupportedLanguages
+  getSupportedLanguages,
+  verifySolution
 } = require("../controller/codeExecution");
+
+const { generateHiddenTests } = require("../controller/testGeneration");
 
 const {
   verifyToken,
@@ -82,7 +85,11 @@ router.delete("/battles/:id", verifyToken, deleteBattle);
 // General code execution endpoints (Piston-backed)
 router.post("/run", runCodeGeneral);
 router.post("/submit", verifyToken, submitSolutionGeneral);
+router.post("/verify", verifyToken, verifySolution);
 router.get("/submission-status/:challengeId", verifyToken, getSubmissionStatus);
 router.get("/languages", getSupportedLanguages);
+
+// Hidden test generation (LLM-backed)
+router.post("/tests/generate", verifyToken, generateHiddenTests);
 
 module.exports = router;

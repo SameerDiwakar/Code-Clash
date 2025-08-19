@@ -10,8 +10,7 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { toast } from 'sonner';
 
 const PROGRAMMING_LANGUAGES = [
-  'JavaScript', 'TypeScript', 'Python', 'Java', 'C++', 'C#', 'Go', 'Rust',
-  'PHP', 'Ruby', 'Swift', 'Kotlin', 'Dart', 'Scala', 'R', 'MATLAB'
+  'JavaScript', 'Python', 'Java', 'C++'
 ];
 
 const CODING_SKILLS = [

@@ -31,12 +31,33 @@ interface SubmissionResult {
   output: string;
   executionTime?: string;
   memoryUsed?: string;
+  // Backend-detailed result for per-test rendering
+  result?: {
+    status: string;
+    details: Array<{
+      testCase: number;
+      input: string;
+      expectedOutput: string;
+      actualOutput: string;
+      passed: boolean;
+      status: string;
+      time: number;
+      memory: number;
+      stderr?: string;
+      isHidden?: boolean;
+    }>;
+    executionTime: number;
+    memory: number;
+    totalCases: number;
+    passedCases: number;
+    failedCases: number;
+  };
 }
 
 interface SupportedLanguage {
   id: string;
   version: string;
-  boilerplate: string;
+  boilerplate: string; // backend now returns LeetCode-style here
 }
 
 const Battle = () => {
@@ -124,28 +145,28 @@ const Battle = () => {
         const resp = await axios.get('http://localhost:4000/api/languages', { withCredentials: true });
         const list: SupportedLanguage[] = resp.data?.languages || [];
         setLanguages(list);
-        // If editor is empty, set default language boilerplate
-        if (!code.trim()) {
-          const def = list.find(l => l.id === 'python3') || list[0];
-          if (def) {
-            setLanguage(def.id);
-            setCode(def.boilerplate || '');
-          }
+        // Set default language boilerplate from backend (LeetCode-style)
+        const def = list.find(l => l.id === 'python3') || list[0];
+        if (def) {
+          setLanguage(def.id);
+          setCode(def.boilerplate || '');
         }
       } catch (e) {
-        // silently ignore; language dropdown will still work with defaults
+        console.warn('Failed to load languages:', e);
+        // Set minimal fallback
+        setLanguage('python3');
+        setCode('class Solution:\n    def solve(self):\n        pass\n');
       }
     };
     loadLanguages();
-  }, []);
+  }, [id]); // Add id dependency to reload when battle changes
 
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
     const entry = languages.find(l => l.id === lang);
-    if (entry) {
-      // Always apply boilerplate for the selected language (no confirmation)
-      setCode(entry.boilerplate || '');
-    }
+    // Use backend-provided LeetCode-style boilerplate
+    const bp = entry?.boilerplate || '';
+    setCode(bp);
   };
 
   const handleLeave = async () => {
@@ -181,12 +202,12 @@ const Battle = () => {
     try {
       const resp = await axios.post(
         `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/run`,
-        { code, language: normalizeBattleLanguage(language) },
+        { code, language: normalizeBattleLanguage(language), isLeetCodeStyle: true, functionName: 'solve', useProblemTests: true },
         { withCredentials: true }
       );
       const data = resp.data || {};
       setSubmissionResult({
-        verdict: data.stderr ? 'Runtime Error' : 'Ran',
+        verdict: data.stderr ? 'Runtime Error' : 'Executed Successfully',
         output: (data.output || data.stdout || data.stderr || '').toString(),
         executionTime: data.time ? `${data.time}s` : undefined,
         memoryUsed: data.memory ? `${data.memory} KB` : undefined
@@ -194,8 +215,8 @@ const Battle = () => {
     } catch (e: any) {
       console.error('Run error:', e);
       setSubmissionResult({
-        verdict: 'Error',
-        output: e.response?.data?.error || 'Failed to run code.'
+        verdict: 'Execution Failed',
+        output: e.response?.data?.error || 'Failed to execute code. Please check your syntax and try again.'
       });
     } finally {
       setIsRunning(false);
@@ -209,7 +230,7 @@ const Battle = () => {
     try {
       const resp = await axios.post(
         `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/submit`,
-        { code, language: normalizeBattleLanguage(language) },
+        { code, language: normalizeBattleLanguage(language), isLeetCodeStyle: true, functionName: 'solve' },
         { withCredentials: true }
       );
       const submission = resp.data?.submission;
@@ -217,10 +238,17 @@ const Battle = () => {
       setSubmissionResult({
         verdict: result.status || 'Unknown',
         output: Array.isArray(result.details)
-          ? result.details.map((d: any, i: number) => `#${i + 1} ${d.passed ? 'PASS' : 'FAIL'}\nInput:\n${d.input}\nExpected:\n${d.expected}\nGot:\n${d.stdout}\n${d.stderr ? `Stderr:\n${d.stderr}` : ''}`).join('\n\n')
+          ? result.details
+              .map((d: any, i: number) => {
+                const exp = d.expectedOutput ?? d.expected ?? '';
+                const got = d.actualOutput ?? d.stdout ?? '';
+                return `#${i + 1} ${d.passed ? 'PASS' : 'FAIL'}\nInput:\n${d.input}\nExpected:\n${exp}\nGot:\n${got}${d.stderr ? `\nStderr:\n${d.stderr}` : ''}`;
+              })
+              .join('\n\n')
           : 'Submitted.',
         executionTime: typeof result.executionTime !== 'undefined' ? `${result.executionTime}s` : undefined,
-        memoryUsed: typeof result.memory !== 'undefined' ? `${result.memory} KB` : undefined
+        memoryUsed: typeof result.memory !== 'undefined' ? `${result.memory} KB` : undefined,
+        result
       });
     } catch (e: any) {
       console.error('Submission error:', e);
@@ -271,21 +299,30 @@ const Battle = () => {
           {selectedProblem && (
             <BattleProblemDetails problem={selectedProblem} />
           )}
-          {/* Coding Workspace: 30% output on left, 70% editor on right */}
-          <div className="grid grid-cols-1 md:[grid-template-columns:30%_70%] gap-4">
-            {/* Left: Verdict / Output */}
-            <div className="order-2 md:order-1">
+          {/* Coding Workspace: Left = Verdict (30%), Right = Editor (70%) */}
+          <div className="grid grid-cols-1 md:grid-cols-10 gap-4">
+            {/* Left: Output / Verdict */}
+            <div className="order-2 md:order-1 md:col-span-3 space-y-4">
+              {/* Verdict / Submission Result */}
               <BattleSubmissionResult submissionResult={submissionResult} />
               {leaveError && (
-                <div className="text-sm text-red-300 mt-2">{leaveError}</div>
+                <div className="text-sm text-red-300">{leaveError}</div>
               )}
               {leaveMessage && (
-                <div className="text-sm text-green-300 mt-2">{leaveMessage}</div>
+                <div className="text-sm text-green-300">{leaveMessage}</div>
               )}
             </div>
 
-            {/* Right: Buttons + Code Editor */}
-            <div className="space-y-4 order-1 md:order-2">
+            {/* Right: Code Editor */}
+            <div className="order-1 md:order-2 md:col-span-7 space-y-4">
+              {/* Code Editor */}
+              <BattleCodeEditor
+                code={code}
+                setCode={setCode}
+                language={language}
+                setLanguage={handleLanguageChange}
+              />
+              {/* Run & Submit Buttons */}
               <div className="flex items-center gap-3">
                 <Button
                   onClick={handleRun}
@@ -296,18 +333,20 @@ const Battle = () => {
                 >
                   {isRunning ? 'Running...' : 'Run Code'}
                 </Button>
+                {/* Submit Button */}
                 <BattleSubmitButton
                   onSubmit={handleSubmit}
                   isSubmitting={isSubmitting}
                   code={code}
                 />
               </div>
-              <BattleCodeEditor
-                code={code}
-                setCode={setCode}
-                language={language}
-                setLanguage={handleLanguageChange}
+              {/* Custom Input below buttons - temporarily disabled */}
+              {/*
+              <BattleCustomInput
+                customInput={customInput}
+                setCustomInput={setCustomInput}
               />
+              */}
             </div>
           </div>
         </div>

@@ -114,6 +114,9 @@ const battleSchema = new Schema({
   endTime: {
     type: Date,
   },
+  expiresAt: {
+    type: Date,
+  },
   isPublic: {
     type: Boolean,
     default: true
@@ -149,6 +152,8 @@ battleSchema.index({ startTime: 1 });
 battleSchema.index({ difficulty: 1 });
 battleSchema.index({ isPublic: 1 });
 battleSchema.index({ endTime: 1 });
+// TTL index to automatically delete battles 1 day after they end
+battleSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 // Unique index on normalizedTitle ensures case-insensitive uniqueness for new/updated docs
 // Use partial index so legacy documents without normalizedTitle don't block index creation
 battleSchema.index(
@@ -168,6 +173,10 @@ battleSchema.pre('validate', function(next) {
 battleSchema.pre('save', function(next) {
   if (this.startTime && this.duration) {
     this.endTime = new Date(this.startTime.getTime() + (this.duration * 60 * 1000));
+  }
+  // Set the expiration time to 24 hours after endTime so MongoDB TTL index can remove it
+  if (this.endTime) {
+    this.expiresAt = new Date(this.endTime.getTime() + (24 * 60 * 60 * 1000));
   }
   next();
 });
