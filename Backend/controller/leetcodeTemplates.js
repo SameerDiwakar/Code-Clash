@@ -9,19 +9,37 @@ const LEETCODE_TEMPLATES = {
     return `
 import json
 import sys
+from typing import List, Dict, Any, Union, Optional
 
 # User's solution code
 ${userCode}
 
+def safe_parse_json(s: str) -> Any:
+    """Safely parse JSON string, falling back to string if parsing fails."""
+    if not isinstance(s, str):
+        return s
+    try:
+        return json.loads(s)
+    except (json.JSONDecodeError, TypeError):
+        return s
+
+def format_result(result: Any) -> str:
+    """Format the result for consistent comparison."""
+    if result is None:
+        return 'null'
+    if isinstance(result, (list, dict)):
+        return json.dumps(result, separators=(',', ':'))
+    return str(result)
+
 # Test execution wrapper
 def run_tests():
-    inputs = ${JSON.stringify(inputs)}
-    expected = ${JSON.stringify(expectedOutputs)}
+    inputs = ${JSON.stringify(inputs, null, 2)}
+    expected = ${JSON.stringify(expectedOutputs, null, 2)}
     
-    for i, test_input in enumerate(inputs):
+    for i, (test_input, exp) in enumerate(zip(inputs, expected)):
         try:
             # Parse input arguments
-            args = json.loads(test_input) if isinstance(test_input, str) else test_input
+            args = safe_parse_json(test_input)
             if not isinstance(args, list):
                 args = [args]
             
@@ -30,11 +48,12 @@ def run_tests():
             result = getattr(solution, '${functionName}')(*args)
             
             # Convert result to string for comparison
-            output = json.dumps(result, separators=(',', ':')) if result is not None else 'null'
+            output = format_result(result)
             print(f"Test {i+1}: {output}")
             
         except Exception as e:
-            print(f"Test {i+1}: ERROR - {str(e)}")
+            error_msg = str(e).replace('\n', ' ').strip()
+            print(f"Test {i+1}: ERROR - {error_msg}")
 
 if __name__ == "__main__":
     run_tests()
@@ -46,33 +65,64 @@ if __name__ == "__main__":
 // User's solution code
 ${userCode}
 
+/**
+ * Safely parse JSON string, falling back to string if parsing fails
+ * @param {string} str - The string to parse
+ * @returns {any} The parsed value or original string
+ */
+function safeParseJson(str) {
+    if (typeof str !== 'string') return str;
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        return str;
+    }
+}
+
+/**
+ * Format the result for consistent comparison
+ * @param {any} result - The result to format
+ * @returns {string} Formatted result string
+ */
+function formatResult(result) {
+    if (result === null || result === undefined) return 'null';
+    if (typeof result === 'object') {
+        try {
+            return JSON.stringify(result);
+        } catch (e) {
+            return String(result);
+        }
+    }
+    return String(result);
+}
+
 // Test execution wrapper
 function runTests() {
-    const inputs = ${JSON.stringify(inputs)};
-    const expected = ${JSON.stringify(expectedOutputs)};
+    const inputs = ${JSON.stringify(inputs, null, 2)};
+    const expected = ${JSON.stringify(expectedOutputs, null, 2)};
     
     for (let i = 0; i < inputs.length; i++) {
         try {
             // Parse input arguments
-            let args = typeof inputs[i] === 'string' ? JSON.parse(inputs[i]) : inputs[i];
-            if (!Array.isArray(args)) {
-                args = [args];
-            }
+            const testInput = safeParseJson(inputs[i]);
+            const args = Array.isArray(testInput) ? testInput : [testInput];
             
             // Create solution instance and call function
             const solution = new Solution();
             const result = solution.${functionName}(...args);
             
             // Convert result to string for comparison
-            const output = JSON.stringify(result);
-            console.log(\`Test \${i+1}: \${output}\`);
+            const output = formatResult(result);
+            console.log(\`Test \${i+1}: \${output.replace(/\\n/g, ' ').trim()}\`);
             
         } catch (e) {
-            console.log(\`Test \${i+1}: ERROR - \${e.message}\`);
+            const errorMsg = (e.message || String(e)).replace(/\\n/g, ' ').trim();
+            console.log(\`Test \${i+1}: ERROR - \${errorMsg}\`);
         }
     }
 }
 
+// Run the tests
 runTests();
 `;
   },
@@ -124,40 +174,60 @@ public class Main {
   },
 
   cpp: (userCode, functionName, inputs, expectedOutputs) => {
-    return `
-#include <bits/stdc++.h>
-#include <nlohmann/json.hpp>
-using namespace std;
-using json = nlohmann::json;
+    // Convert inputs to C++ vector initialization
+    const formatTestCases = (arr) => {
+      return arr.map(testCase => `{${testCase.join(',')}}`).join(',');
+    };
 
-// User's solution code
-${userCode}
+    return `#include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
+using namespace std;
+
+class Solution {
+public:
+    // Your solution function
+    // Example: int functionName(vector<int>& nums) {
+    //     // Your code here
+    //     return 0;
+    // }
+    ${userCode}
+};
+
+// Helper function to print test case results
+void printTestCase(int testNum, const vector<int>& input, int result, int expected) {
+    cout << "Test Case " << testNum + 1 << ":" << endl;
+    cout << "Input: [";
+    for (int i = 0; i < input.size(); i++) {
+        if (i > 0) cout << ", ";
+        cout << input[i];
+    }
+    cout << "]" << endl;
+    cout << "Output: " << result << endl;
+    cout << "Expected: " << expected << endl;
+    cout << (result == expected ? "✓ Passed" : "✗ Failed") << "\n\n";
+}
 
 int main() {
-    vector<string> inputs = ${JSON.stringify(inputs)};
-    vector<string> expected = ${JSON.stringify(expectedOutputs)};
+    Solution sol;
     
-    Solution solution;
+    // Test cases
+    vector<vector<int>> testCases = {
+        ${formatTestCases(inputs.map(JSON.parse))}
+    };
     
-    for (int i = 0; i < inputs.size(); i++) {
-        try {
-            // Parse JSON input
-            json inputJson = json::parse(inputs[i]);
-            
-            // Call function - this would need template specialization for different signatures
-            auto result = solution.${functionName}(inputJson);
-            
-            json outputJson = result;
-            cout << "Test " << (i+1) << ": " << outputJson.dump() << endl;
-            
-        } catch (const exception& e) {
-            cout << "Test " << (i+1) << ": ERROR - " << e.what() << endl;
-        }
+    // Expected results
+    vector<int> expected = {${expectedOutputs.join(',')}};
+    
+    // Run test cases
+    for (int i = 0; i < testCases.size(); i++) {
+        int result = sol.${functionName}(testCases[i]);
+        printTestCase(i, testCases[i], result, expected[i]);
     }
     
     return 0;
-}
-`;
+}`;
   }
 };
 
@@ -196,15 +266,8 @@ Solution.prototype.${functionName} = function(${params}) {
 `;
   },
 
-  cpp: (functionName = 'twoSum', returnType = 'vector<int>', params = 'vector<int>& nums, int target') => {
-    return `class Solution {
-public:
-    ${returnType} ${functionName}(${params}) {
-        // TODO: Implement your solution here
-        
-    }
-};
-`;
+  cpp: () => {
+    return ''; // Completely blank editor
   }
 };
 
@@ -247,28 +310,104 @@ const generateLeetCodeBoilerplate = (language, problemConfig = {}) => {
  * Converts string-based test cases to structured arguments
  */
 function parseLeetCodeTestCase(input, output) {
+  // Ensure input is a string
+  const inputStr = typeof input === 'string' ? input.trim() : JSON.stringify(input);
+  const outputStr = typeof output === 'string' ? output.trim() : JSON.stringify(output);
+  
   try {
-    // Try to parse as JSON first
-    const parsedInput = JSON.parse(input.trim());
-    const parsedOutput = JSON.parse(output.trim());
+    // Parse input and output as JSON
+    let parsedInput, parsedOutput;
+    
+    try {
+      parsedInput = JSON.parse(inputStr);
+    } catch (e) {
+      // If parsing fails, treat as a string
+      parsedInput = inputStr;
+    }
+    
+    try {
+      parsedOutput = JSON.parse(outputStr);
+    } catch (e) {
+      // If parsing fails, treat as a string
+      parsedOutput = outputStr;
+    }
+    
+    // Convert to array if not already
+    const inputArray = Array.isArray(parsedInput) ? parsedInput : [parsedInput];
     
     return {
-      input: Array.isArray(parsedInput) ? parsedInput : [parsedInput],
-      output: parsedOutput
+      input: inputArray,
+      output: parsedOutput,
+      inputString: inputStr,
+      outputString: outputStr
     };
   } catch (e) {
-    // Fallback to string parsing
+    console.error('Error parsing test case:', e);
+    // Fallback to raw values
     return {
-      input: [input.trim()],
-      output: output.trim()
+      input: [inputStr],
+      output: outputStr,
+      inputString: inputStr,
+      outputString: outputStr,
+      error: e.message
     };
   }
 }
+
+// Simple boilerplate code for each language
+const SIMPLE_BOILERPLATES = {
+  'python': `def solve():
+    # Write your code here
+    pass`,
+  
+  'javascript': `function solve() {
+    // Write your code here
+}`,
+  
+  'java': `public class Solution {
+    public void solve() {
+        // Write your code here
+    }
+}`,
+  
+  'cpp': `#include <iostream>
+using namespace std;
+
+void solve() {
+    // Write your code here
+}`,
+  
+  'c': `#include <stdio.h>
+
+void solve() {
+    // Write your code here
+}`
+};
+
+// Language versions
+const LANGUAGE_VERSIONS = {
+  'python': '3.10.0',
+  'javascript': '18.15.0',
+  'java': '15.0.2',
+  'cpp': '10.2.0',
+  'c': '10.2.0',
+  'csharp': '6.12.0',
+  'php': '8.2.3',
+  'ruby': '3.2.2',
+  'swift': '5.3.3',
+  'go': '1.18.0',
+  'scala': '3.2.2',
+  'kotlin': '1.8.0',
+  'rust': '1.68.2',
+  'typescript': '5.0.3'
+};
 
 module.exports = {
   generateLeetCodeExecution,
   generateLeetCodeBoilerplate,
   parseLeetCodeTestCase,
   LEETCODE_TEMPLATES,
-  LEETCODE_BOILERPLATE
+  LEETCODE_BOILERPLATE,
+  SIMPLE_BOILERPLATES,
+  LANGUAGE_VERSIONS
 };

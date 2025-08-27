@@ -3,10 +3,7 @@ const mongoose = require('mongoose');
 const TestCase = require('../models/testCase');
 const Submission = require('../models/submission');
 const User = require('../models/user');
-const { 
-  SIMPLE_BOILERPLATES, 
-  LANGUAGE_VERSIONS 
-} = require('./leetcodeTemplates');
+const { SIMPLE_BOILERPLATES, LANGUAGE_VERSIONS } = require('./leetcodeTemplates');
 
 // Piston API configuration
 const PISTON_API_URL = process.env.PISTON_API_URL || 'https://emkc.org/api/v2/piston/execute';
@@ -403,23 +400,13 @@ const getSupportedLanguages = async (_req, res) => {
     const languages = Object.keys(LANGUAGE_VERSIONS).map(lang => ({
       id: lang,
       name: lang.charAt(0).toUpperCase() + lang.slice(1),
-      version: LANGUAGE_VERSIONS[lang],
-      defaultCode: SIMPLE_BOILERPLATES[lang] || ''
+      version: LANGUAGE_VERSIONS[lang]
     }));
     
-    res.json({ 
-      success: true,
-      data: {
-        languages
-      }
-    });
+    res.json({ languages });
   } catch (error) {
     console.error('Get languages error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to fetch supported languages',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ error: 'Failed to fetch supported languages' });
   }
 };
 
@@ -451,71 +438,10 @@ const getSubmissionStatus = async (req, res) => {
   }
 };
 
-// Verify solution against test cases (similar to submit but with different response format)
-const verifySolution = async (req, res) => {
-  try {
-    const { code, language, testCases = [] } = req.body;
-    
-    if (!code || !language) {
-      return res.status(400).json({ error: 'Code and language are required' });
-    }
-    
-    if (!testCases || !Array.isArray(testCases) || testCases.length === 0) {
-      return res.status(400).json({ error: 'At least one test case is required' });
-    }
-    
-    // Use the existing submitSolution logic but format the response differently
-    req.body = { ...req.body, challengeId: 'verification' };
-    
-    // Mock the response from submitSolution
-    const mockRes = {
-      json: (data) => {
-        if (data.success) {
-          return res.json({
-            verified: true,
-            results: data.submission.results.map(r => ({
-              input: r.input,
-              expected: r.expectedOutput,
-              output: r.actualOutput,
-              passed: r.passed
-            }))
-          });
-        } else {
-          return res.status(400).json({
-            verified: false,
-            error: data.error || 'Verification failed',
-            results: data.submission?.results?.map(r => ({
-              input: r.input,
-              expected: r.expectedOutput,
-              output: r.actualOutput,
-              passed: r.passed,
-              error: r.error
-            })) || []
-          });
-        }
-      },
-      status: (code) => ({
-        json: (data) => res.status(code).json(data)
-      })
-    };
-    
-    await submitSolution(req, mockRes);
-    
-  } catch (error) {
-    console.error('Verify solution error:', error);
-    res.status(500).json({
-      verified: false,
-      error: 'Internal server error during verification',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
 module.exports = {
   runCode,
   submitSolution,
   getSubmissionStatus,
   getSupportedLanguages,
-  getSimpleBoilerplate,
-  verifySolution
+  getSimpleBoilerplate
 };
