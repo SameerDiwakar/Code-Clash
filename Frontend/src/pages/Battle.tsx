@@ -284,7 +284,11 @@ const Battle = () => {
         <BattleHeader />
         <div className="ml-4 flex items-center gap-3">
           {isParticipant && (
-            <Button onClick={handleLeave} disabled={leaveLoading} className="bg-red-600 hover:bg-red-700 text-white">
+            <Button 
+              onClick={handleLeave} 
+              disabled={leaveLoading} 
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
               {leaveLoading ? 'Leaving...' : 'Leave Battle'}
             </Button>
           )}
@@ -295,20 +299,21 @@ const Battle = () => {
         {/* Problems List */}
         <BattleProblemsList
           problems={problems}
-          selectedProblemId={selectedProblem ? selectedProblem.id : ''}
+          selectedProblemId={selectedProblem?.id || ''}
           onSelect={(p) => setSelectedProblem(p)}
-                />
+        />
+        
         {/* Main Coding Area */}
         <div className="space-y-6">
           {/* Problem Details */}
           {selectedProblem && (
             <BattleProblemDetails problem={selectedProblem} />
           )}
-          {/* Coding Workspace: Left = Verdict (30%), Right = Editor (70%) */}
+          
+          {/* Coding Workspace */}
           <div className="grid grid-cols-1 md:grid-cols-10 gap-4">
             {/* Left: Output / Verdict */}
             <div className="order-2 md:order-1 md:col-span-3 space-y-4">
-              {/* Verdict / Submission Result */}
               <BattleSubmissionResult submissionResult={submissionResult} />
               {leaveError && (
                 <div className="text-sm text-red-300">{leaveError}</div>
@@ -320,14 +325,20 @@ const Battle = () => {
 
             {/* Right: Code Editor */}
             <div className="order-1 md:order-2 md:col-span-7 space-y-4">
-              {/* Code Editor */}
               <BattleCodeEditor
                 code={code}
                 setCode={setCode}
                 language={language}
                 setLanguage={handleLanguageChange}
+                problemTitle="solve"
+                problemDescription={selectedProblem?.description || ''}
+                examples={selectedProblem ? [{
+                  input: selectedProblem.inputSample,
+                  output: selectedProblem.outputSample
+                }] : []}
               />
-              {/* Run & Submit Buttons */}
+              
+              {/* Action Buttons */}
               <div className="flex items-center gap-3">
                 <Button
                   onClick={handleRun}
@@ -338,20 +349,12 @@ const Battle = () => {
                 >
                   {isRunning ? 'Running...' : 'Run Code'}
                 </Button>
-                {/* Submit Button */}
                 <BattleSubmitButton
                   onSubmit={handleSubmit}
                   isSubmitting={isSubmitting}
                   code={code}
                 />
               </div>
-              {/* Custom Input below buttons - temporarily disabled */}
-              {/*
-              <BattleCustomInput
-                customInput={customInput}
-                setCustomInput={setCustomInput}
-              />
-              */}
             </div>
           </div>
         </div>
