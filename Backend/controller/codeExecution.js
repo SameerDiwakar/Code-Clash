@@ -11,10 +11,10 @@ const PISTON_API_URL = process.env.PISTON_API_URL || 'https://emkc.org/api/v2/pi
 
 // Language version mapping for Piston API (restricted to cpp, javascript, java, python3)
 const LANGUAGE_VERSIONS = {
-  python3: '3.10.0',
-  javascript: '18.15.0',
-  cpp: '10.2.0',
-  java: '15.0.2'
+  'c++': '10.2.0',
+  'java': '15.0.2',
+  'javascript': '18.15.0',
+  'python': '3.10.0'
 };
 
 /**
@@ -640,10 +640,10 @@ const submitSolution = async (req, res) => {
  */
 function getFileName(language) {
   const extensions = {
-    python3: 'main.py',
-    javascript: 'main.js',
-    cpp: 'main.cpp',
-    java: 'Main.java'
+    'python': 'main.py',
+    'javascript': 'main.js',
+    'c++': 'main.cpp',
+    'java': 'Main.java'
   };
   return extensions[language] || 'main.txt';
 }
@@ -657,10 +657,10 @@ const getSupportedLanguages = async (_req, res) => {
     // Try to generate LeetCode-style boilerplate for each language
     let lc = '';
     try {
-      if (key === 'python3') lc = generateLeetCodeBoilerplate('python3', { functionName: 'solve', returnType: 'int', params: 'n: int' });
+      if (key === 'python') lc = generateLeetCodeBoilerplate('python', { functionName: 'solve', returnType: 'int', params: 'n: int' });
       else if (key === 'javascript') lc = generateLeetCodeBoilerplate('javascript', { functionName: 'solve', params: 'n' });
       else if (key === 'java') lc = generateLeetCodeBoilerplate('java', { functionName: 'solve', returnType: 'int', params: 'int n' });
-      else if (key === 'cpp') lc = generateLeetCodeBoilerplate('cpp', { functionName: 'solve', returnType: 'int', params: 'int n' });
+      else if (key === 'c++') lc = generateLeetCodeBoilerplate('cpp', { functionName: 'solve', returnType: 'int', params: 'int n' });
     } catch {}
 
     return {

@@ -66,7 +66,7 @@ const Battle = () => {
   const [problems, setProblems] = useState<Problem[]>([]);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
   const [code, setCode] = useState('');
-  const [language, setLanguage] = useState('python3');
+  const [language, setLanguage] = useState('python');
   const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
@@ -95,11 +95,16 @@ const Battle = () => {
     } as Problem;
   };
 
-  // Some legacy battle endpoints might expect slightly different ids (e.g., 'python').
-  // Normalize for compatibility when calling battle-specific run/submit.
+  // Normalize language identifiers between frontend and backend
   const normalizeBattleLanguage = (lang: string) => {
-    if (lang === 'python3') return 'python';
-    return lang;
+    // Map frontend language IDs to backend language IDs
+    switch (lang) {
+      case 'c++': return 'c++';
+      case 'java': return 'java';
+      case 'javascript': return 'javascript';
+      case 'python': return 'python';
+      default: return 'python'; // Default to python if unknown
+    }
   };
 
   useEffect(() => {
@@ -146,7 +151,7 @@ const Battle = () => {
         const list: SupportedLanguage[] = resp.data?.languages || [];
         setLanguages(list);
         // Set default language boilerplate from backend (LeetCode-style)
-        const def = list.find(l => l.id === 'python3') || list[0];
+        const def = list.find(l => l.id === 'python') || list[0];
         if (def) {
           setLanguage(def.id);
           setCode(def.boilerplate || '');
@@ -154,8 +159,8 @@ const Battle = () => {
       } catch (e) {
         console.warn('Failed to load languages:', e);
         // Set minimal fallback
-        setLanguage('python3');
-        setCode('class Solution:\n    def solve(self):\n        pass\n');
+        setLanguage('python');
+        setCode('def solve():\n    pass\n');
       }
     };
     loadLanguages();

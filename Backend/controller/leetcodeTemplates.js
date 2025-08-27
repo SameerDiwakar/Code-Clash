@@ -5,7 +5,7 @@
 
 // Template generators for each language
 const LEETCODE_TEMPLATES = {
-  python3: (userCode, functionName, inputs, expectedOutputs) => {
+  python: (userCode, functionName, inputs, expectedOutputs) => {
     return `
 import json
 import sys
@@ -163,7 +163,7 @@ int main() {
 
 // LeetCode-style boilerplate for each language
 const LEETCODE_BOILERPLATE = {
-  python3: (functionName = 'twoSum', returnType = 'List[int]', params = 'nums: List[int], target: int') => {
+  python: (functionName = 'twoSum', returnType = 'List[int]', params = 'nums: List[int], target: int') => {
     return `class Solution:
     def ${functionName}(self, ${params}) -> ${returnType}:
         # TODO: Implement your solution here
@@ -212,32 +212,35 @@ public:
  * Generate executable code by wrapping user's function-based solution
  * with input/output handling template
  */
-function generateLeetCodeExecution(language, userCode, functionName, inputs, expectedOutputs) {
-  const template = LEETCODE_TEMPLATES[language];
+const generateLeetCodeExecution = (language, userCode, functionName, inputs, expectedOutputs) => {
+  // Map language to the correct template key
+  const templateKey = language === 'c++' ? 'cpp' : language;
+  const template = LEETCODE_TEMPLATES[templateKey];
   if (!template) {
-    throw new Error(`LeetCode template not supported for language: ${language}`);
+    throw new Error(`Unsupported language for LeetCode execution: ${language}`);
   }
-  
   return template(userCode, functionName, inputs, expectedOutputs);
-}
+};
 
 /**
  * Generate LeetCode-style boilerplate for a given problem
  */
-function generateLeetCodeBoilerplate(language, problemConfig = {}) {
+const generateLeetCodeBoilerplate = (language, problemConfig = {}) => {
   const {
     functionName = 'solve',
-    returnType = 'int',
-    params = 'int n'
+    params = 'n',
+    returnType = 'any',
+    className = 'Solution'
   } = problemConfig;
-  
-  const template = LEETCODE_BOILERPLATE[language];
+
+  // Map language to the correct template key
+  const templateKey = language === 'c++' ? 'cpp' : language;
+  const template = LEETCODE_BOILERPLATE[templateKey];
   if (!template) {
-    throw new Error(`LeetCode boilerplate not supported for language: ${language}`);
+    throw new Error(`Unsupported language for LeetCode boilerplate: ${language}`);
   }
-  
-  return template(functionName, returnType, params);
-}
+  return template(functionName, returnType, params, className);
+};
 
 /**
  * Parse test case input/output for LeetCode-style execution

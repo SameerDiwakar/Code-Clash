@@ -21,19 +21,10 @@ const BattleCodeEditor = ({ code, setCode, language, setLanguage }: BattleCodeEd
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="python3">Python 3</SelectItem>
+              <SelectItem value="python">Python</SelectItem>
               <SelectItem value="javascript">JavaScript (Node)</SelectItem>
-              <SelectItem value="typescript">TypeScript</SelectItem>
-              <SelectItem value="cpp">C++</SelectItem>
-              <SelectItem value="c">C</SelectItem>
+              <SelectItem value="c++">C++</SelectItem>
               <SelectItem value="java">Java</SelectItem>
-              <SelectItem value="go">Go</SelectItem>
-              <SelectItem value="rust">Rust</SelectItem>
-              <SelectItem value="csharp">C#</SelectItem>
-              <SelectItem value="php">PHP</SelectItem>
-              <SelectItem value="ruby">Ruby</SelectItem>
-              <SelectItem value="kotlin">Kotlin</SelectItem>
-              <SelectItem value="swift">Swift</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -51,32 +42,14 @@ const BattleCodeEditor = ({ code, setCode, language, setLanguage }: BattleCodeEd
 
 function mapToMonacoLanguage(lang: string): string {
   switch (lang) {
-    case 'python3':
+    case 'python':
       return 'python';
     case 'javascript':
       return 'javascript';
-    case 'typescript':
-      return 'typescript';
-    case 'cpp':
+    case 'c++':
       return 'cpp';
-    case 'c':
-      return 'c';
     case 'java':
       return 'java';
-    case 'go':
-      return 'go';
-    case 'rust':
-      return 'rust';
-    case 'csharp':
-      return 'csharp';
-    case 'php':
-      return 'php';
-    case 'ruby':
-      return 'ruby';
-    case 'kotlin':
-      return 'kotlin';
-    case 'swift':
-      return 'swift';
     default:
       return 'plaintext';
   }
