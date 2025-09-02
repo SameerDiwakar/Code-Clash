@@ -34,36 +34,21 @@ const BattleCodeEditor = ({
   const monacoLanguage = mapToMonacoLanguage(language);
   const [isResetting, setIsResetting] = useState(false);
   
-  const defaultBoilerplates: Record<string, string> = {
-    'python': 'def solve():\n    pass',
-    'javascript': 'function solve() {\n    \n}',
-    'java': 'public class Solution {\n    public static void main(String[] args) {\n        \n    }\n}',
-    'c++': '#include <iostream>\nusing namespace std;\n\nint main() {\n    \n    return 0;\n}'
-  };
+  // Removed default boilerplates since we're not using them anymore
   
   const handleReset = () => {
-    setIsResetting(true);
-    
-    // First try to get boilerplate from backend
-    axios.get<{languages: LanguageInfo[]}>('http://localhost:4000/api/languages', { withCredentials: true })
-      .then(response => {
-        const languages = response.data?.languages || [];
-        const currentLang = languages.find(lang => lang.id === language);
-        if (currentLang?.boilerplate) {
-          setCode(currentLang.boilerplate);
-        } else {
-          // Fallback to default boilerplate if not found in backend
-          setCode(defaultBoilerplates[language] || '');
-        }
-      })
-      .catch(error => {
-        console.error('Failed to fetch languages:', error);
-        // Use default boilerplate if API call fails
-        setCode(defaultBoilerplates[language] || '');
-      })
-      .finally(() => {
+    // Show confirmation dialog before clearing the editor
+    if (window.confirm('Are you sure you want to reset the editor? This will clear all your code.')) {
+      setIsResetting(true);
+      
+      // Clear the editor content completely
+      setCode('');
+      
+      // Reset the loading state after a short delay
+      setTimeout(() => {
         setIsResetting(false);
-      });
+      }, 100);
+    }
   };
 
   return (
