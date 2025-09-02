@@ -235,7 +235,13 @@ const Battle = () => {
     try {
       const resp = await axios.post(
         `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/submit`,
-        { code, language: normalizeBattleLanguage(language), isLeetCodeStyle: true, functionName: 'solve' },
+        { 
+          code, 
+          language: normalizeBattleLanguage(language), 
+          isLeetCodeStyle: true, 
+          functionName: 'solve',
+          challengeId: selectedProblem.id // Add challengeId to match backend expectation
+        },
         { withCredentials: true }
       );
       const submission = resp.data?.submission;

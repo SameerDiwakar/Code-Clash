@@ -7,6 +7,7 @@ const {
   SIMPLE_BOILERPLATES, 
   LANGUAGE_VERSIONS 
 } = require('./leetcodeTemplates');
+const { prepareTestCasesForExecution } = require('../utils/testCaseUtils');
 
 // Piston API configuration
 const PISTON_API_URL = process.env.PISTON_API_URL || 'https://emkc.org/api/v2/piston/execute';
@@ -234,16 +235,22 @@ const submitSolution = async (req, res) => {
     // Get test cases for this challenge
     const testCases = await TestCase.find({ challengeId });
     if (!testCases || testCases.length === 0) {
-      return res.status(400).json({ error: 'No test cases found for this challenge' });
+      return res.status(400).json({ 
+        error: 'No test cases found for this challenge',
+        details: 'Please ensure the challenge has valid test cases before submitting.'
+      });
     }
 
-    // Prepare test inputs and expected outputs
-    const inputs = testCases.map(tc => tc.input || '');
-    const expectedOutputs = testCases.map(tc => tc.expectedOutput || '');
-    
-    // Generate execution arguments
-    const inputsArg = JSON.stringify(inputs);
-    const expectedArg = JSON.stringify(expectedOutputs);
+    try {
+      // Prepare test cases for execution
+      const { inputs, expectedOutputs, normalizedTestCases } = prepareTestCasesForExecution(testCases);
+      
+      // Log processed test cases for debugging
+      console.log('Processed test cases:', JSON.stringify(normalizedTestCases, null, 2));
+      
+      // Generate execution arguments
+      const inputsArg = JSON.stringify(inputs);
+      const expectedArg = JSON.stringify(expectedOutputs);
     
     // Prepare execution request
     const pistonRequest = {
@@ -377,6 +384,9 @@ const submitSolution = async (req, res) => {
       }
     });
     
+    } catch (innerError) {
+      throw innerError;
+    }
   } catch (error) {
     console.error('Submit solution error:', error);
     
@@ -387,9 +397,18 @@ const submitSolution = async (req, res) => {
       });
     }
     
+    // Handle test case validation errors
+    if (error.message.includes('Test cases must be provided') || 
+        error.message.includes('At least one test case')) {
+      return res.status(400).json({
+        error: 'Invalid test cases',
+        details: error.message
+      });
+    }
+    
     res.status(500).json({
       error: 'Internal server error during submission',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
     });
   }
 };
