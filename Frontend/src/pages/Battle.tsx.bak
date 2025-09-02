@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { CodeEditor } from '@/components/index/CodeEditor';
 import { ProblemCard } from '@/components/index/ProblemCard';
 import { Play, Code, Trophy, ArrowLeft } from 'lucide-react';
+import PageLayout from '@/components/layout/PageLayout';
 import BattleHeader from '@/components/battle/BattleHeader';
 import BattleProblemsList from '@/components/battle/BattleProblemsList';
 import BattleProblemDetails from '@/components/battle/BattleProblemDetails';
@@ -274,18 +275,55 @@ const Battle = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-red-400">{error}</div>
+      <PageLayout className="flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-400 mb-4">Error Loading Battle</h2>
+          <p className="text-slate-300 mb-6">{error}</p>
+          <Button asChild>
+            <Link to="/" className="flex items-center">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Home
+            </Link>
+          </Button>
+        </div>
+      </PageLayout>
     );
   }
+    setSubmissionResult({
+      verdict: data.stderr ? 'Runtime Error' : 'Executed Successfully',
+      output: (data.output || data.stdout || data.stderr || '').toString(),
+      executionTime: data.time ? `${data.time}s` : undefined,
+      memoryUsed: data.memory ? `${data.memory} KB` : undefined
+    });
+  } catch (e: any) {
+    console.error('Run error:', e);
+    setSubmissionResult({
+      verdict: 'Execution Failed',
+      output: e.response?.data?.error || 'Failed to execute code. Please check your syntax and try again.'
+    });
+  } finally {
+    setIsRunning(false);
+  }
+};
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-white p-6">
-      <div className="flex items-center justify-between max-w-7xl mx-auto mb-4">
-        <BattleHeader />
-        <div className="ml-4 flex items-center gap-3">
-          {isParticipant && (
-            <Button 
-              onClick={handleLeave} 
+const handleSubmit = async () => {
+  if (!id || !selectedProblem) return;
+  setIsSubmitting(true);
+  setSubmissionResult(null);
+  try {
+    const resp = await axios.post(
+      `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/submit`,
+      { code, language: normalizeBattleLanguage(language), isLeetCodeStyle: true, functionName: 'solve' },
+      { withCredentials: true }
+    );
+    const submission = resp.data?.submission;
+    const result = submission?.result || {};
+    setSubmissionResult({
+      verdict: result.status || 'Unknown',
+      output: Array.isArray(result.details)
+        ? result.details
+            .map((d: any, i: number) => {
+              const exp = d.expectedOutput ?? d.expected ?? '';
               disabled={leaveLoading} 
               className="bg-red-600 hover:bg-red-700 text-white"
             >
@@ -359,7 +397,7 @@ const Battle = () => {
           </div>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 
