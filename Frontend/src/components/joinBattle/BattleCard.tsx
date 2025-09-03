@@ -2,20 +2,26 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Code, Clock, Users, User, Calendar, AlertCircle, Loader2 } from 'lucide-react';
+import { Code, Clock, Users, User, Calendar, AlertCircle, Loader2, Lock, Copy } from 'lucide-react';
 import { Battle } from './types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 interface BattleCardProps {
-  battle: Battle;
-  onJoinBattle: (battleId: string) => void;
+  battle: Battle & { accessCode?: string };
+  onJoinBattle: (battleId: string, accessCode?: string) => Promise<void>;
   onDeleteBattle?: (battleId: string) => void;
 }
 
 const BattleCard = ({ battle, onJoinBattle, onDeleteBattle }: BattleCardProps) => {
   const [isJoining, setIsJoining] = useState(false);
+  const [showAccessCodeDialog, setShowAccessCodeDialog] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
+  const [isAccessCodeRequired, setIsAccessCodeRequired] = useState(false);
   const { user } = useAuth();
 
   const toDate = (val?: string | Date) => {
@@ -163,21 +169,63 @@ const BattleCard = ({ battle, onJoinBattle, onDeleteBattle }: BattleCardProps) =
   };
 
   const handleJoinClick = async () => {
+    if (!battle.isPublic && !isCreator()) {
+      setShowAccessCodeDialog(true);
+      return;
+    }
+    await joinBattle();
+  };
+
+  const handleAccessCodeSubmit = async () => {
+    if (!accessCode.trim()) {
+      toast.error('Please enter an access code');
+      return;
+    }
+    await joinBattle(accessCode);
+  };
+
+  const joinBattle = async (code?: string) => {
     try {
       setIsJoining(true);
-      await onJoinBattle(battle._id);
+      await onJoinBattle(battle._id, code);
+      setShowAccessCodeDialog(false);
+      setAccessCode('');
+    } catch (error: any) {
+      if (error.message?.includes('access code')) {
+        setIsAccessCodeRequired(true);
+        toast.error('Invalid access code');
+      } else {
+        toast.error(error.message || 'Failed to join battle');
+      }
     } finally {
       setIsJoining(false);
     }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard!');
   };
 
   return (
     <Card className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-cyan-500/30 backdrop-blur-sm hover:border-cyan-400/50 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/20 h-full flex flex-col">
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-cyan-400 text-lg leading-tight line-clamp-2" title={battle.title}>
-            {battle.title}
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-cyan-400 text-lg leading-tight line-clamp-2" title={battle.title}>
+              {battle.title}
+            </CardTitle>
+            {!battle.isPublic && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Lock className="h-4 w-4 text-amber-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Private Battle</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
           <Badge className={`${getDifficultyColor(battle.difficulty)} border`}>
             {battle.difficulty}
           </Badge>
@@ -316,17 +364,76 @@ const BattleCard = ({ battle, onJoinBattle, onDeleteBattle }: BattleCardProps) =
             )}
           </Button>
 
-          {isCreator() && onDeleteBattle && (
-            <Button
-              onClick={() => onDeleteBattle(battle._id)}
-              variant="outline"
-              className="w-full border-red-500/40 text-red-300 hover:bg-red-500/10"
-            >
-              Delete Battle
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {isCreator() && !battle.isPublic && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => copyToClipboard(battle.accessCode || '')}
+                className="flex-1 border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Code
+              </Button>
+            )}
+            {isCreator() && onDeleteBattle && (
+              <Button
+                onClick={() => onDeleteBattle(battle._id)}
+                variant="outline"
+                className="flex-1 border-red-500/40 text-red-300 hover:bg-red-500/10"
+              >
+                Delete
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
+      <Dialog open={showAccessCodeDialog} onOpenChange={(open) => {
+        setShowAccessCodeDialog(open);
+        if (!open) {
+          setAccessCode('');
+          setIsAccessCodeRequired(false);
+        }
+      }}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-cyan-400">Join Private Battle</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              This is a private battle. Please enter the access code to join.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-300">Access Code</label>
+              <Input
+                type="text"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                placeholder="Enter access code"
+                className={`bg-slate-700/50 border-slate-600 text-white ${isAccessCodeRequired ? 'border-red-500' : ''}`}
+                autoFocus
+              />
+              {isAccessCodeRequired && (
+                <p className="text-sm text-red-400">Incorrect access code. Please try again.</p>
+              )}
+            </div>
+            <Button
+              onClick={handleAccessCodeSubmit}
+              disabled={isJoining || !accessCode.trim()}
+              className="w-full bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600"
+            >
+              {isJoining ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Joining...
+                </>
+              ) : (
+                'Join Battle'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

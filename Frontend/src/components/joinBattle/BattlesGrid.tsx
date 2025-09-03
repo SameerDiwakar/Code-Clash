@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 
 interface BattlesGridProps {
   battles: Battle[];
-  onJoinBattle: (battleId: string) => void;
+  onJoinBattle: (battleId: string, accessCode?: string) => Promise<void>;
   onDeleteBattle?: (battleId: string) => void;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;

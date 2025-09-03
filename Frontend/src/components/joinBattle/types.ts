@@ -20,6 +20,7 @@ export interface Battle {
     username: string;
   };
   tags: string[];
+  isPublic: boolean;
   createdAt: string;
   updatedAt: string;
 }

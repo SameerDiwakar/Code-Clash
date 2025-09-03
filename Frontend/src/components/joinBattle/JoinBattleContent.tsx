@@ -100,7 +100,7 @@ const JoinBattleContent = () => {
   };
 
   // Handle joining a battle
-  const handleJoinBattle = async (battleId: string) => {
+  const handleJoinBattle = async (battleId: string, accessCode?: string) => {
     try {
       // Pre-check: if already a participant, skip POST join to avoid 400
       try {
@@ -117,7 +117,7 @@ const JoinBattleContent = () => {
 
       const response = await axios.post(
         `http://localhost:4000/api/battles/${battleId}/join`,
-        {},
+        { accessCode },
         { withCredentials: true }
       );
       
@@ -133,14 +133,23 @@ const JoinBattleContent = () => {
       // Extract error message from backend response first
       const errorMessage = err.response?.data?.error || 'Failed to join battle. Please try again.';
 
-      // If user already joined, navigate to the battle instead of showing an error
+          // If user already joined, navigate to the battle instead of showing an error
       if (
         err?.response?.status === 400 &&
         typeof errorMessage === 'string' &&
-        errorMessage.toLowerCase().includes('already joined')
+        (errorMessage.toLowerCase().includes('already joined') ||
+         errorMessage.toLowerCase().includes('already a participant'))
       ) {
         navigate(`/battle/${battleId}`);
         return;
+      }
+      
+      // If access code is required or invalid, re-throw to be handled by BattleCard
+      if (err?.response?.status === 400 && 
+          typeof errorMessage === 'string' && 
+          (errorMessage.toLowerCase().includes('access code') ||
+           errorMessage.toLowerCase().includes('invalid code'))) {
+        throw new Error(errorMessage);
       }
       
       // Log other errors (avoid noisy logs for known 'already joined' case)
