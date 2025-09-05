@@ -16,9 +16,23 @@ const joinBattle = async (req, res) => {
       return res.status(404).json({ error: 'Battle not found' });
     }
 
-    // Check if battle is public or user has access
+    // Check if battle is private and validate access code if user is not the creator
     if (!battle.isPublic) {
-      return res.status(403).json({ error: 'This battle is private' });
+      const { accessCode } = req.body;
+      const isCreator = battle.creator.toString() === user._id.toString();
+      
+      // Allow creator to join without access code
+      if (!isCreator) {
+        // If no access code provided, return error
+        if (!accessCode) {
+          return res.status(403).json({ error: 'Access code is required to join this private battle' });
+        }
+        
+        // If access code doesn't match, return error
+        if (accessCode !== battle.accessCode) {
+          return res.status(403).json({ error: 'Invalid access code' });
+        }
+      }
     }
 
     // Check if battle hasn't started yet

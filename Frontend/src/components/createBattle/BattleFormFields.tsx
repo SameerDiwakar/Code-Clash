@@ -41,6 +41,8 @@ interface BattleFormFieldsProps {
   setStartTime: (value: string) => void;
   isPublic: boolean;
   setIsPublic: (value: boolean) => void;
+  accessCode: string;
+  setAccessCode: (value: string) => void;
   tags: string;
   setTags: (value: string) => void;
   problems: Problem[];
@@ -69,6 +71,8 @@ const BattleFormFields = ({
   setStartTime,
   isPublic,
   setIsPublic,
+  accessCode,
+  setAccessCode,
   tags,
   setTags,
   problems,
@@ -239,14 +243,41 @@ const BattleFormFields = ({
               />
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="isPublic"
-              checked={isPublic}
-              onCheckedChange={setIsPublic}
-              className="border-slate-600"
-            />
-            <Label htmlFor="isPublic" className="text-slate-300">Make this battle public</Label>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="isPublic"
+                checked={isPublic}
+                onCheckedChange={(checked) => {
+                  setIsPublic(checked as boolean);
+                  if (checked) setAccessCode(''); // Clear access code when making public
+                }}
+                className="border-slate-600"
+              />
+              <Label htmlFor="isPublic" className="text-slate-300">Make this battle public</Label>
+            </div>
+            
+            {!isPublic && (
+              <div className="space-y-2">
+                <Label htmlFor="accessCode" className="text-slate-300">
+                  Access Code (required, 4-10 characters)
+                </Label>
+                <Input
+                  id="accessCode"
+                  type="text"
+                  placeholder="Enter an access code"
+                  value={accessCode}
+                  onChange={(e) => setAccessCode(e.target.value)}
+                  minLength={4}
+                  maxLength={10}
+                  className="bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400"
+                  required={!isPublic}
+                />
+                <p className="text-xs text-slate-400">
+                  Share this code with others to let them join this private battle
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

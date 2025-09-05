@@ -33,6 +33,7 @@ const BattleForm = () => {
   const [maxParticipants, setMaxParticipants] = useState('100');
   const [startTime, setStartTime] = useState('');
   const [isPublic, setIsPublic] = useState(true);
+  const [accessCode, setAccessCode] = useState('');
   const [tags, setTags] = useState('');
   const [problems, setProblems] = useState<Problem[]>([
     {
@@ -136,6 +137,7 @@ const BattleForm = () => {
         maxParticipants: parseInt(maxParticipants, 10),
         startTime: startTime ? new Date(startTime).toISOString() : undefined,
         isPublic,
+        accessCode: !isPublic ? accessCode : undefined,
         tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag),
         problems
       };
@@ -255,6 +257,8 @@ const BattleForm = () => {
               setStartTime={setStartTime}
               isPublic={isPublic}
               setIsPublic={setIsPublic}
+              accessCode={accessCode}
+              setAccessCode={setAccessCode}
               tags={tags}
               setTags={setTags}
               problems={problems}

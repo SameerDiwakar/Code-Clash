@@ -121,6 +121,19 @@ const battleSchema = new Schema({
     type: Boolean,
     default: true
   },
+  accessCode: {
+    type: String,
+    minlength: 4,
+    maxlength: 10,
+    trim: true,
+    validate: {
+      validator: function(v) {
+        // Access code is required if battle is not public
+        return this.isPublic || (v && v.length >= 4);
+      },
+      message: 'Access code must be 4-10 characters long for private battles'
+    }
+  },
   tags: [String],
   leaderboard: [{
     user: {

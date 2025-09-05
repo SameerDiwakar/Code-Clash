@@ -134,7 +134,8 @@ const createBattle = async (req, res) => {
 
     const battleStartTime = startTime ? new Date(startTime) : new Date(Date.now() + 5 * 60 * 1000); // Default: 5 minutes from now
 
-    const battle = new Battle({
+    // Prepare battle data
+    const battleData = {
       title: title.trim(),
       description: description.trim(),
       problems: normalizedProblems,
@@ -147,10 +148,24 @@ const createBattle = async (req, res) => {
       creator: user._id,
       participants: [{
         user: user._id,
-        joinedAt: new Date()
+        joinedAt: new Date(),
+        isCreator: true
       }],
       status: 'waiting'
-    });
+    };
+
+    // Add access code if battle is private
+    if (!battleData.isPublic) {
+      const { accessCode } = req.body;
+      if (!accessCode || accessCode.length < 4) {
+        return res.status(400).json({
+          error: 'Access code is required and must be at least 4 characters long for private battles'
+        });
+      }
+      battleData.accessCode = accessCode;
+    }
+
+    const battle = new Battle(battleData);
 
     await battle.save();
 
