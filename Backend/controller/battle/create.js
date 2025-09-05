@@ -45,6 +45,15 @@ const createBattle = async (req, res) => {
       });
     }
 
+    // Validate each problem has at least 2 test cases
+    for (const [index, problem] of problems.entries()) {
+      if (!problem.testCases || !Array.isArray(problem.testCases) || problem.testCases.length < 2) {
+        return res.status(400).json({
+          error: `Problem ${index + 1} must have at least 2 test cases`
+        });
+      }
+    }
+
     if (!difficulty || !['Easy', 'Medium', 'Hard'].includes(difficulty)) {
       return res.status(400).json({
         error: 'Valid difficulty (Easy, Medium, Hard) is required'

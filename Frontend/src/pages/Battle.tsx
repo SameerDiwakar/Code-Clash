@@ -24,6 +24,11 @@ interface Problem {
   inputSample: string;
   outputSample: string;
   constraints: string[];
+  testCases?: Array<{
+    input: string;
+    expectedOutput: string;
+    isHidden?: boolean;
+  }>;
 }
 
 interface SubmissionResult {
@@ -110,6 +115,16 @@ const Battle = () => {
     const constraintsArr = p.constraints
       ? (typeof p.constraints === 'string' ? p.constraints.split('\n').filter(Boolean) : p.constraints)
       : [];
+    
+    // Map test cases if they exist
+    const testCases = Array.isArray(p.testCases) 
+      ? p.testCases.map((tc: any) => ({
+          input: tc.input || '',
+          expectedOutput: tc.expectedOutput || tc.output || '',
+          isHidden: !!tc.isHidden
+        }))
+      : [];
+    
     return {
       id: p._id || String(index + 1),
       title: p.title,
@@ -117,7 +132,8 @@ const Battle = () => {
       difficulty: p.difficulty,
       inputSample: firstExample?.input || '',
       outputSample: firstExample?.output || '',
-      constraints: Array.isArray(constraintsArr) ? constraintsArr : []
+      constraints: Array.isArray(constraintsArr) ? constraintsArr : [],
+      testCases
     } as Problem;
   };
 
