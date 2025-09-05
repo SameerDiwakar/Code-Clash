@@ -58,20 +58,51 @@ const submitSolution = async (req, res) => {
 
     const testCases = problem.testCases;
 
-    // Validate test cases have proper string input/expectedOutput
+    // Validate test cases have proper JSON input/expectedOutput
     const invalidCases = [];
     for (let i = 0; i < testCases.length; i++) {
       const tc = testCases[i];
-      const inOk = typeof tc.input === 'string' && tc.input.trim() !== '';
-      const outOk = typeof tc.expectedOutput === 'string' && tc.expectedOutput.trim() !== '';
-      if (!inOk || !outOk) {
-        invalidCases.push({ index: i + 1, input: tc.input, expectedOutput: tc.expectedOutput });
+      let inputError = null;
+      let outputError = null;
+      
+      // Validate input
+      if (typeof tc.input !== 'string' || !tc.input.trim()) {
+        inputError = 'Input must be a non-empty string';
+      } else {
+        try {
+          JSON.parse(tc.input);
+        } catch (e) {
+          inputError = `Invalid JSON input: ${e.message}`;
+        }
+      }
+      
+      // Validate expected output
+      if (typeof tc.expectedOutput !== 'string' || !tc.expectedOutput.trim()) {
+        outputError = 'Expected output must be a non-empty string';
+      } else {
+        try {
+          JSON.parse(tc.expectedOutput);
+        } catch (e) {
+          outputError = `Invalid JSON in expected output: ${e.message}`;
+        }
+      }
+      
+      if (inputError || outputError) {
+        invalidCases.push({
+          testCase: i + 1,
+          input: tc.input,
+          inputError,
+          expectedOutput: tc.expectedOutput,
+          outputError
+        });
       }
     }
+    
     if (invalidCases.length > 0) {
       return res.status(400).json({
-        error: 'Invalid test cases: input/expectedOutput must be non-empty strings',
-        invalidCases
+        error: 'Invalid test cases found',
+        invalidCases,
+        message: 'Please ensure all test cases have valid JSON input and expected output.'
       });
     }
 

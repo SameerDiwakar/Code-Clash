@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +24,11 @@ interface Problem {
   inputSample: string;
   outputSample: string;
   constraints: string[];
+  testCases?: Array<{
+    input: string;
+    expectedOutput: string;
+    isHidden?: boolean;
+  }>;
 }
 
 interface SubmissionResult {
@@ -65,6 +70,32 @@ const Battle = () => {
   const navigate = useNavigate();
   const [problems, setProblems] = useState<Problem[]>([]);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
+  // Get a unique storage key based on battle and problem IDs
+  const getStorageKey = useCallback((battleId: string, problemId: string) => {
+    return `battle_${battleId}_problem_${problemId}_code`;
+  }, []);
+
+  // Load code from localStorage when problem changes
+  useEffect(() => {
+    if (id && selectedProblem?.id) {
+      const savedCode = localStorage.getItem(getStorageKey(id, selectedProblem.id));
+      if (savedCode) {
+        setCode(savedCode);
+      } else {
+        // Reset to empty if no saved code
+        setCode('');
+      }
+    }
+  }, [id, selectedProblem?.id, getStorageKey]);
+
+  // Save code to localStorage when it changes
+  const setCodeWithPersistence = useCallback((newCode: string) => {
+    setCode(newCode);
+    if (id && selectedProblem?.id) {
+      localStorage.setItem(getStorageKey(id, selectedProblem.id), newCode);
+    }
+  }, [id, selectedProblem?.id, getStorageKey]);
+
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('python');
   const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
@@ -84,6 +115,16 @@ const Battle = () => {
     const constraintsArr = p.constraints
       ? (typeof p.constraints === 'string' ? p.constraints.split('\n').filter(Boolean) : p.constraints)
       : [];
+    
+    // Map test cases if they exist
+    const testCases = Array.isArray(p.testCases) 
+      ? p.testCases.map((tc: any) => ({
+          input: tc.input || '',
+          expectedOutput: tc.expectedOutput || tc.output || '',
+          isHidden: !!tc.isHidden
+        }))
+      : [];
+    
     return {
       id: p._id || String(index + 1),
       title: p.title,
@@ -91,7 +132,8 @@ const Battle = () => {
       difficulty: p.difficulty,
       inputSample: firstExample?.input || '',
       outputSample: firstExample?.output || '',
-      constraints: Array.isArray(constraintsArr) ? constraintsArr : []
+      constraints: Array.isArray(constraintsArr) ? constraintsArr : [],
+      testCases
     } as Problem;
   };
 
@@ -171,7 +213,7 @@ const Battle = () => {
     const entry = languages.find(l => l.id === lang);
     // Use backend-provided LeetCode-style boilerplate
     const bp = entry?.boilerplate || '';
-    setCode(bp);
+    setCodeWithPersistence(bp);
   };
 
   const handleLeave = async () => {
@@ -235,7 +277,13 @@ const Battle = () => {
     try {
       const resp = await axios.post(
         `http://localhost:4000/api/battles/${id}/problems/${selectedProblem.id}/submit`,
-        { code, language: normalizeBattleLanguage(language), isLeetCodeStyle: true, functionName: 'solve' },
+        { 
+          code, 
+          language: normalizeBattleLanguage(language), 
+          isLeetCodeStyle: true, 
+          functionName: 'solve',
+          challengeId: selectedProblem.id // Add challengeId to match backend expectation
+        },
         { withCredentials: true }
       );
       const submission = resp.data?.submission;
@@ -327,11 +375,11 @@ const Battle = () => {
             <div className="order-1 md:order-2 md:col-span-7 space-y-4">
               <BattleCodeEditor
                 code={code}
-                setCode={setCode}
+                setCode={setCodeWithPersistence}
                 language={language}
-                setLanguage={handleLanguageChange}
-                problemTitle="solve"
-                problemDescription={selectedProblem?.description || ''}
+                setLanguage={setLanguage}
+                problemTitle={selectedProblem?.title}
+                problemDescription={selectedProblem?.description}
                 examples={selectedProblem ? [{
                   input: selectedProblem.inputSample,
                   output: selectedProblem.outputSample

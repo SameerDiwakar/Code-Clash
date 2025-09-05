@@ -462,7 +462,10 @@ const BattleFormFields = ({
                 {/* Test Cases */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <Label className="text-slate-300">Test Cases</Label>
+                    <div className="space-y-1">
+                      <Label className="text-slate-300">Test Cases</Label>
+                      <p className="text-xs text-slate-400">At least 2 test cases are required</p>
+                    </div>
                     <Button
                       type="button"
                       onClick={() => addTestCase(problemIndex)}
@@ -495,17 +498,17 @@ const BattleFormFields = ({
                                 Hidden
                               </Label>
                             </div>
-                            {problem.testCases.length > 1 && (
-                              <Button
-                                type="button"
-                                onClick={() => removeTestCase(problemIndex, testCaseIndex)}
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-400 hover:text-red-300"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            )}
+                            <Button
+                              type="button"
+                              onClick={() => removeTestCase(problemIndex, testCaseIndex)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-400 hover:text-red-300"
+                              disabled={problem.testCases.length <= 2}
+                              title={problem.testCases.length <= 2 ? "At least 2 test cases are required" : "Remove test case"}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
                           </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
