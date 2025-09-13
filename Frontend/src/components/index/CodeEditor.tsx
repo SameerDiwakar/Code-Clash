@@ -1,5 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 interface CodeEditorProps {
   value: string;
@@ -16,7 +17,21 @@ export const CodeEditor = ({ value, onChange, language }: CodeEditorProps) => {
   useEffect(() => {
     let timeoutId: number | undefined;
 
-    const initMonaco = () => {
+    const showPasteWarning = () => {
+    toast.warning('Pasting code is not allowed. Please type your code manually to improve learning!', {
+      duration: 5000,
+      position: 'top-center',
+    });
+  };
+  
+  const preventPaste = (e: ClipboardEvent) => {
+    showPasteWarning();
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  };
+
+  const initMonaco = () => {
       try {
         if (!editorRef.current || monacoRef.current) return;
         const monaco = (window as any).monaco;
@@ -33,6 +48,40 @@ export const CodeEditor = ({ value, onChange, language }: CodeEditorProps) => {
           minimap: { enabled: false },
           automaticLayout: true,
         });
+
+        // Add paste event listeners at multiple levels to ensure we catch all paste events
+        const editorElement = editorRef.current;
+        
+        // Add to Monaco's content widget
+        const contentWidget = editorElement.querySelector('.monaco-editor .content');
+        if (contentWidget) {
+          contentWidget.addEventListener('paste', preventPaste, true);
+        }
+        
+        // Add to the editor's input area
+        const inputArea = editorElement.querySelector('textarea');
+        if (inputArea) {
+          inputArea.addEventListener('paste', preventPaste, true);
+        }
+        
+        // Add to the editor element itself
+        editorElement.addEventListener('paste', preventPaste, true);
+        
+        // Add to document as a fallback
+        document.addEventListener('paste', preventPaste, true);
+        
+        // Cleanup function to remove event listeners
+        return () => {
+          if (contentWidget) {
+            contentWidget.removeEventListener('paste', preventPaste, true);
+          }
+          if (inputArea) {
+            inputArea.removeEventListener('paste', preventPaste, true);
+          }
+          editorElement.removeEventListener('paste', preventPaste, true);
+          document.removeEventListener('paste', preventPaste, true);
+        };
+
         monacoRef.current.onDidChangeModelContent(() => {
           onChange(monacoRef.current.getValue());
         });
